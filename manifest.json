@@ -1,0 +1,9 @@
+{
+  "name": "Beach Sprint Timer",
+  "short_name": "BSTimer",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0f172a",
+  "description": "Cronometraje privado y sincronizado de Beach Sprint"
+}
