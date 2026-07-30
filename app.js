@@ -1,4 +1,4 @@
-console.info("Beach Sprint Timer v2.3 import + remember fix loaded");
+console.info("Beach Sprint Timer v2.4 import timeout fix loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -16,6 +16,18 @@ const client=window.supabase.createClient(
 );
 const $=id=>document.getElementById(id);
 const normalize=v=>String(v??"").replace(/\s+/g," ").trim();
+
+function withTimeout(promise,milliseconds,message){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=>{
+      window.setTimeout(
+        ()=>reject(new Error(message)),
+        milliseconds
+      );
+    })
+  ]);
+}
 
 let authMode="login",currentUser=null,athletes=[],selectedIds=new Set(),sessions=[];
 let session=null,actions=[],ticker=null,lastTap=new Map(),saving=false;
@@ -168,7 +180,7 @@ async function handleImport(file){
       athletes.map(athlete=>athlete.name.toLowerCase())
     );
 
-    const unique=[];
+    const pending=[];
     const seenInFile=new Set();
 
     for(const athlete of imported){
@@ -182,50 +194,113 @@ async function handleImport(file){
       }
 
       seenInFile.add(normalizedName);
-
-      unique.push({
-        user_id:currentUser.id,
-        name:athlete.name,
-        club:athlete.club||null,
-        category:athlete.category||null,
-        bib:athlete.bib||null
-      });
+      pending.push(athlete);
     }
 
-    if(!unique.length){
+    if(!pending.length){
       setImport("No hay deportistas nuevos: todos ya existen.");
       setSync("☁️ Sincronizado","ok");
       return;
     }
 
-    setImport(`Guardando ${unique.length} deportistas…`);
-    setSync(`☁️ Guardando ${unique.length} deportistas…`,"loading");
+    let savedCount=0;
+    let skippedCount=imported.length-pending.length;
+    const failed=[];
 
-    const {data,error}=await client
-      .from("athletes")
-      .insert(unique)
-      .select();
+    for(let index=0;index<pending.length;index++){
+      const athlete=pending[index];
 
-    if(error)throw error;
+      setImport(
+        `Guardando ${index+1}/${pending.length}: ${athlete.name}…`
+      );
+      setSync(
+        `☁️ Guardando ${index+1} de ${pending.length}…`,
+        "loading"
+      );
 
-    athletes.push(...(data||[]));
-    athletes.sort((a,b)=>a.name.localeCompare(b.name,"es"));
+      const payload={
+        user_id:currentUser.id,
+        name:athlete.name,
+        club:athlete.club||null,
+        category:athlete.category||null,
+        bib:athlete.bib||null
+      };
 
-    for(const athlete of data||[]){
-      selectedIds.add(athlete.id);
+      try{
+        const response=await withTimeout(
+          client
+            .from("athletes")
+            .insert(payload)
+            .select()
+            .single(),
+          12000,
+          `Supabase no respondió al guardar a ${athlete.name}.`
+        );
+
+        if(response.error)throw response.error;
+
+        athletes.push(response.data);
+        selectedIds.add(response.data.id);
+        existingNames.add(response.data.name.toLowerCase());
+        savedCount++;
+      }catch(error){
+        console.error(`Error importing ${athlete.name}:`,error);
+
+        // A timed-out request may still have reached the server.
+        // Verify before marking it as failed.
+        try{
+          const verification=await withTimeout(
+            client
+              .from("athletes")
+              .select("*")
+              .ilike("name",athlete.name)
+              .limit(1),
+            6000,
+            "No se pudo verificar el guardado."
+          );
+
+          if(!verification.error && verification.data?.length){
+            const savedAthlete=verification.data[0];
+
+            if(!athletes.some(item=>item.id===savedAthlete.id)){
+              athletes.push(savedAthlete);
+              selectedIds.add(savedAthlete.id);
+            }
+
+            existingNames.add(savedAthlete.name.toLowerCase());
+            savedCount++;
+            continue;
+          }
+        }catch(verificationError){
+          console.error(
+            `Verification failed for ${athlete.name}:`,
+            verificationError
+          );
+        }
+
+        failed.push(athlete.name);
+      }
     }
 
+    athletes.sort((a,b)=>a.name.localeCompare(b.name,"es"));
     renderAll();
 
-    const skipped=imported.length-unique.length;
-    const skippedText=skipped>0
-      ? ` ${skipped} duplicados omitidos.`
-      : "";
+    if(failed.length){
+      setImport(
+        `${savedCount} importados. No se pudieron guardar: ${failed.join(", ")}.`,
+        true
+      );
+      setSync("Importación incompleta","error");
+    }else{
+      const skippedText=skippedCount
+        ? ` ${skippedCount} duplicados omitidos.`
+        : "";
 
-    setImport(
-      `${unique.length} deportistas importados correctamente.${skippedText}`
-    );
-    setSync("☁️ Sincronizado","ok");
+      setImport(
+        `${savedCount} deportistas importados correctamente.${skippedText}`
+      );
+      setSync("☁️ Sincronizado","ok");
+    }
   }catch(error){
     console.error("Athlete import failed:",error);
     setImport(
