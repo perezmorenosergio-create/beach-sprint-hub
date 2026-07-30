@@ -1,14 +1,59 @@
-console.info("Beach Sprint Timer v2.1 auth fix loaded");
+console.info("Beach Sprint Timer v2.3 import + remember fix loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
 
-const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const client=window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth:{
+      persistSession:true,
+      autoRefreshToken:true,
+      detectSessionInUrl:true
+    }
+  }
+);
 const $=id=>document.getElementById(id);
 const normalize=v=>String(v??"").replace(/\s+/g," ").trim();
 
 let authMode="login",currentUser=null,athletes=[],selectedIds=new Set(),sessions=[];
 let session=null,actions=[],ticker=null,lastTap=new Map(),saving=false;
+
+const REMEMBER_EMAIL_KEY="bst_remember_email";
+const REMEMBER_ACCESS_KEY="bst_remember_access";
+
+function loadLoginPreferences(){
+  const remember=localStorage.getItem(REMEMBER_ACCESS_KEY)!=="false";
+  $("rememberAccessInput").checked=remember;
+
+  if(remember){
+    $("emailInput").value=localStorage.getItem(REMEMBER_EMAIL_KEY)||"";
+  }
+}
+
+function saveLoginPreferences(email){
+  const remember=$("rememberAccessInput").checked;
+  localStorage.setItem(REMEMBER_ACCESS_KEY,String(remember));
+
+  if(remember){
+    localStorage.setItem(REMEMBER_EMAIL_KEY,email);
+  }else{
+    localStorage.removeItem(REMEMBER_EMAIL_KEY);
+  }
+}
+
+function togglePasswordVisibility(){
+  const input=$("passwordInput");
+  const showing=input.type==="text";
+
+  input.type=showing?"password":"text";
+  $("togglePasswordButton").textContent=showing?"Ver":"Ocultar";
+  $("togglePasswordButton").setAttribute(
+    "aria-label",
+    showing?"Mostrar contraseña":"Ocultar contraseña"
+  );
+}
 
 function setAuthMessage(text,error=false){$("authMessage").textContent=text;$("authMessage").className=`auth-message ${error?"error":"success"}`}
 function setSync(text,state="ok"){$("syncBanner").textContent=text;$("syncBanner").dataset.state=state}
@@ -26,6 +71,7 @@ function setAuthMode(mode){
 async function handleAuth(event){
   event.preventDefault();
   const email=normalize($("emailInput").value),password=$("passwordInput").value,fullName=normalize($("fullNameInput").value);
+  saveLoginPreferences(email);
   $("authSubmitButton").disabled=true;setAuthMessage(authMode==="signup"?"Creando cuenta…":"Entrando…");
   try{
     if(authMode==="signup"){
@@ -46,7 +92,11 @@ async function forgotPassword(){
   setAuthMessage(error?error.message:"Te hemos enviado un correo para restablecer la contraseña.",!!error);
 }
 async function enterApp(user){
-  currentUser=user;$("authScreen").classList.add("hidden");$("appShell").classList.remove("hidden");$("userEmail").textContent=user.email||"";
+  currentUser=user;
+  $("passwordInput").value="";
+  $("authScreen").classList.add("hidden");
+  $("appShell").classList.remove("hidden");
+  $("userEmail").textContent=user.email||"";
   setSync("☁️ Cargando…","loading");await Promise.all([loadAthletes(),loadSessions()]);setSync("☁️ Sincronizado","ok");renderAll();
 }
 function leaveApp(){
@@ -102,17 +152,91 @@ async function addAthlete(event){
 }
 function setImport(text,error=false){$("importMessage").textContent=text;$("importMessage").style.color=error?"#b91c1c":"#166534"}
 async function handleImport(file){
-  if(!file)return;setImport("Leyendo archivo…");
+  if(!file)return;
+
+  const input=$("athleteFileInput");
+  input.disabled=true;
+  setImport("Leyendo archivo…");
+  setSync("☁️ Preparando importación…","loading");
+
   try{
-    const rows=await importAthleteFile(file);let added=0;
-    for(const a of rows){
-      if(athletes.some(x=>x.name.toLowerCase()===a.name.toLowerCase()))continue;
-      const {data,error}=await client.from("athletes").insert({user_id:currentUser.id,name:a.name,club:a.club||null,category:a.category||null,bib:a.bib||null}).select().single();
-      if(error)throw error;athletes.push(data);selectedIds.add(data.id);added++;
+    const imported=await importAthleteFile(file);
+
+    setImport(`${imported.length} nombres encontrados. Comprobando duplicados…`);
+
+    const existingNames=new Set(
+      athletes.map(athlete=>athlete.name.toLowerCase())
+    );
+
+    const unique=[];
+    const seenInFile=new Set();
+
+    for(const athlete of imported){
+      const normalizedName=athlete.name.toLowerCase();
+
+      if(
+        existingNames.has(normalizedName) ||
+        seenInFile.has(normalizedName)
+      ){
+        continue;
+      }
+
+      seenInFile.add(normalizedName);
+
+      unique.push({
+        user_id:currentUser.id,
+        name:athlete.name,
+        club:athlete.club||null,
+        category:athlete.category||null,
+        bib:athlete.bib||null
+      });
     }
-    athletes.sort((a,b)=>a.name.localeCompare(b.name));renderAll();setImport(`${added} deportistas importados.`);setSync("☁️ Sincronizado","ok");
-  }catch(error){setImport(error.message||"Error de importación.",true);setSync("Error","error")}
-  $("athleteFileInput").value="";
+
+    if(!unique.length){
+      setImport("No hay deportistas nuevos: todos ya existen.");
+      setSync("☁️ Sincronizado","ok");
+      return;
+    }
+
+    setImport(`Guardando ${unique.length} deportistas…`);
+    setSync(`☁️ Guardando ${unique.length} deportistas…`,"loading");
+
+    const {data,error}=await client
+      .from("athletes")
+      .insert(unique)
+      .select();
+
+    if(error)throw error;
+
+    athletes.push(...(data||[]));
+    athletes.sort((a,b)=>a.name.localeCompare(b.name,"es"));
+
+    for(const athlete of data||[]){
+      selectedIds.add(athlete.id);
+    }
+
+    renderAll();
+
+    const skipped=imported.length-unique.length;
+    const skippedText=skipped>0
+      ? ` ${skipped} duplicados omitidos.`
+      : "";
+
+    setImport(
+      `${unique.length} deportistas importados correctamente.${skippedText}`
+    );
+    setSync("☁️ Sincronizado","ok");
+  }catch(error){
+    console.error("Athlete import failed:",error);
+    setImport(
+      error?.message||"No se pudo importar el archivo.",
+      true
+    );
+    setSync("Error de importación","error");
+  }finally{
+    input.value="";
+    input.disabled=false;
+  }
 }
 function prepareTimer(){
   const chosen=athletes.filter(a=>selectedIds.has(a.id));if(!chosen.length){alert("Selecciona al menos un deportista.");return}
@@ -182,6 +306,14 @@ function renderHistory(){
     row.querySelector(".management-name").textContent=s.name;row.querySelector(".management-meta").textContent=`${new Date(s.session_date).toLocaleString()} · ${s.session_type.toUpperCase()} · ${s.lap_count} laps`;box.append(row)});
 }
 function renderAll(){renderSessionAthletes();renderAthletes();renderHistory()}
+
+loadLoginPreferences();
+$("togglePasswordButton").addEventListener("click",togglePasswordVisibility);
+$("rememberAccessInput").addEventListener("change",()=>{
+  const remember=$("rememberAccessInput").checked;
+  localStorage.setItem(REMEMBER_ACCESS_KEY,String(remember));
+  if(!remember)localStorage.removeItem(REMEMBER_EMAIL_KEY);
+});
 
 $("loginTab").addEventListener("click",()=>setAuthMode("login"));$("signupTab").addEventListener("click",()=>setAuthMode("signup"));
 $("authForm").addEventListener("submit",handleAuth);$("forgotPasswordButton").addEventListener("click",forgotPassword);

@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#0f172a">
   <title>Beach Sprint Timer</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=21">
+  <link rel="stylesheet" href="styles.css?v=23">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=21"></script>
+  <script type="module" src="app.js?v=23"></script>
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -34,8 +34,20 @@
         </label>
         <label>
           <span>Contraseña</span>
-          <input id="passwordInput" type="password" required minlength="6" autocomplete="current-password" placeholder="Mínimo 6 caracteres">
+          <div class="password-field">
+            <input id="passwordInput" type="password" required minlength="6" autocomplete="current-password" placeholder="Mínimo 6 caracteres">
+            <button id="togglePasswordButton" class="password-toggle" type="button" aria-label="Mostrar contraseña">Ver</button>
+          </div>
         </label>
+
+        <label class="remember-row">
+          <input id="rememberAccessInput" type="checkbox" checked>
+          <span>
+            <strong>Mantener sesión iniciada</strong>
+            <small>Recordaremos tu correo y el acceso seguro en este dispositivo.</small>
+          </span>
+        </label>
+
         <button id="authSubmitButton" class="primary-button full-width" type="submit">Iniciar sesión</button>
       </form>
 
