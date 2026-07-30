@@ -1,10 +1,8 @@
-# Beach Sprint Timer v2 Cloud
+# Beach Sprint Timer v2.1 — Auth Fix
 
-Versión estática sin compilación.
+Corrección:
+- El botón Crear cuenta vuelve a responder.
+- import.js ya no depende de data.js.
+- Nueva versión de caché para evitar que Safari conserve el JavaScript roto.
 
-Incluye registro, login, recuperación de contraseña, deportistas privados,
-Excel/CSV, cronómetro, guardado de sesiones y parciales e historial sincronizado.
-
-## GitHub
-Sube los archivos que están DENTRO de esta carpeta a la raíz del repositorio.
-index.html debe quedar visible directamente en la raíz.
+Sube todos estos archivos a GitHub y reemplaza los existentes.
