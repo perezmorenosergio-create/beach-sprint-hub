@@ -1,9 +1,7 @@
-# Beach Sprint Hub v3.9 — Non-blocking Startup
+# Beach Sprint Hub v3.10 — Navigation Recovery
 
-Corrección principal:
-- La interfaz ya no espera a que Supabase termine para quedar operativa.
-- Las pestañas, botones y cierre de sesión funcionan desde el primer momento.
-- Deportistas locales visibles inmediatamente.
-- Deportistas y sesiones se sincronizan en segundo plano.
-- Timeout de 8 segundos en la carga del historial.
-- Si la nube falla, la app sigue funcionando con los datos locales.
+- Registra navegación, logout y autenticación antes de planificación.
+- Un error en planificación ya no bloquea el resto de la app.
+- Inicialización de planificación protegida con try/catch.
+- Actualización de deportistas en planificación también aislada.
+- Navegación defensiva y desplazamiento al inicio de cada pantalla.

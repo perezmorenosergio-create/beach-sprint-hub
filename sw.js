@@ -1,10 +1,10 @@
 
-const CACHE="bst-v39-nonblocking-startup";
+const CACHE="bst-v310-navigation-recovery";
 const ASSETS=[
   "./",
   "./index.html",
-  "./styles.css?v=39",
-  "./app.js?v=39",
+  "./styles.css?v=310",
+  "./app.js?v=310",
   "./planning.js",
   "./config.js",
   "./import.js",

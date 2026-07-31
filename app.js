@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.9 nonblocking startup loaded");
+console.info("Beach Sprint Hub v3.10 navigation recovery loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -129,8 +129,14 @@ function togglePasswordVisibility(){
 function setAuthMessage(text,error=false){$("authMessage").textContent=text;$("authMessage").className=`auth-message ${error?"error":"success"}`}
 function setSync(text,state="ok"){$("syncBanner").textContent=text;$("syncBanner").dataset.state=state}
 function showView(id){
-  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));
+  const target=$(id);
+  if(!target){
+    console.warn("View not found:",id);
+    return;
+  }
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v===target));
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===id));
+  window.scrollTo({top:0,behavior:"auto"});
 }
 function setAuthMode(mode){
   authMode=mode;const signup=mode==="signup";
@@ -424,7 +430,11 @@ async function loadAthletes(loadToken=appLoadToken){
   // Make local data visible before waiting for the network.
   renderSessionAthletes();
   renderAthletes();
-  planningModule?.setAthletes(athletes,currentUser?.id);
+  try{
+    planningModule?.setAthletes(athletes,currentUser?.id);
+  }catch(error){
+    console.error("Planning athlete refresh failed:",error);
+  }
 
   try{
     const response=await withTimeout(
@@ -455,7 +465,11 @@ async function loadAthletes(loadToken=appLoadToken){
       // Second paint with the complete cloud + local list.
       renderSessionAthletes();
       renderAthletes();
-      planningModule?.setAthletes(athletes,currentUser?.id);
+      try{
+    planningModule?.setAthletes(athletes,currentUser?.id);
+  }catch(error){
+    console.error("Planning athlete refresh failed:",error);
+  }
     }
   }catch(error){
     console.warn("Using local athletes:",error);
@@ -663,7 +677,11 @@ function renderAll(){
   renderSessionAthletes();
   renderAthletes();
   renderHistory();
-  planningModule?.setAthletes(athletes,currentUser?.id);
+  try{
+    planningModule?.setAthletes(athletes,currentUser?.id);
+  }catch(error){
+    console.error("Planning athlete refresh failed:",error);
+  }
 }
 
 
@@ -704,6 +722,23 @@ $("rememberAccessInput").addEventListener("change",()=>{
 });
 
 
+// Core navigation is registered before optional modules so the app can never be frozen by them.
+$("loginTab").addEventListener("click",()=>setAuthMode("login"));
+$("signupTab").addEventListener("click",()=>setAuthMode("signup"));
+$("authForm").addEventListener("submit",handleAuth);
+$("forgotPasswordButton").addEventListener("click",forgotPassword);
+$("logoutButton").addEventListener("click",forceLogout);
+$("resetAppButton").addEventListener("click",resetMobileApp);
+
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click",event=>{
+    event.preventDefault();
+    const viewId=tab.dataset.view;
+    if(viewId)showView(viewId);
+  });
+});
+
+try {
 planningModule=createPlanningModule({
   supabase:client,
   getCurrentUser:()=>currentUser,
@@ -753,12 +788,17 @@ planningModule=createPlanningModule({
   librarySearch:$("trainingLibrarySearch"),
   libraryTable:$("trainingLibraryTable")
 });
+} catch (error) {
+  console.error("Planning module initialization failed:",error);
+  planningModule=null;
+  const message=$("planningImportMessage");
+  if(message){
+    message.textContent="La planificación no pudo iniciarse, pero el resto de la aplicación sigue disponible.";
+    message.className="planning-message error";
+  }
+}
 
-$("loginTab").addEventListener("click",()=>setAuthMode("login"));$("signupTab").addEventListener("click",()=>setAuthMode("signup"));
-$("authForm").addEventListener("submit",handleAuth);$("forgotPasswordButton").addEventListener("click",forgotPassword);
-$("logoutButton").addEventListener("click",forceLogout);
-$("resetAppButton").addEventListener("click",resetMobileApp);
-document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>showView(t.dataset.view)));
+
 $("toggleAllAthletes").addEventListener("click",()=>{const all=athletes.length&&athletes.every(a=>selectedIds.has(a.id));selectedIds=all?new Set():new Set(athletes.map(a=>a.id));renderSessionAthletes()});
 $("athleteForm").addEventListener("submit",addAthlete);$("athleteFileInput").addEventListener("change",e=>handleImport(e.target.files[0]));$("downloadTemplateButton").addEventListener("click",downloadAthleteTemplate);
 $("prepareTimerButton").addEventListener("click",prepareTimer);$("startAllButton").addEventListener("click",()=>{const a=startAll(session);if(a){actions.push(a);startTicker();updateTimer()}});
