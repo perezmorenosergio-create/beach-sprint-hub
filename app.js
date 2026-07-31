@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.2 athlete weekly planning loaded");
+console.info("Beach Sprint Hub v3.3 season timeline loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -337,6 +337,9 @@ planningModule=createPlanningModule({
   emptyState:$("planningEmptyState"),
   content:$("planningContent"),
   athleteSelect:$("planningAthleteSelect"),
+  seasonTimeline:$("seasonTimeline"),
+  timelinePrevButton:$("timelinePrevButton"),
+  timelineNextButton:$("timelineNextButton"),
   currentWeekTitle:$("currentWeekTitle"),
   currentWeekMeta:$("currentWeekMeta"),
   currentWeekProgressText:$("currentWeekProgressText"),

@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#0f172a">
   <title>Beach Sprint Timer</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=32">
+  <link rel="stylesheet" href="styles.css?v=33">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=32"></script>
+  <script type="module" src="app.js?v=33"></script>
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -189,6 +189,26 @@
           </div>
 
           <section id="currentWeekPanel" class="planning-panel active">
+            <div class="panel season-timeline-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">TEMPORADA COMPLETA</p>
+                  <h2>Línea temporal de semanas</h2>
+                </div>
+                <div class="timeline-legend">
+                  <span><i class="legend-load recovery"></i>Descarga</span>
+                  <span><i class="legend-load build"></i>Construcción</span>
+                  <span><i class="legend-load high"></i>Carga alta</span>
+                  <span><i class="legend-load event"></i>Evento</span>
+                </div>
+              </div>
+              <div class="season-timeline-shell">
+                <button id="timelinePrevButton" class="timeline-arrow" type="button" aria-label="Semanas anteriores">‹</button>
+                <div id="seasonTimeline" class="season-timeline"></div>
+                <button id="timelineNextButton" class="timeline-arrow" type="button" aria-label="Semanas siguientes">›</button>
+              </div>
+            </div>
+
             <div class="current-week-header panel">
               <div>
                 <p class="eyebrow">SEMANA ACTUAL</p>
@@ -279,6 +299,10 @@
                 <select id="planningPhaseFilter">
                   <option value="">Todas las fases</option>
                 </select>
+              </div>
+              <div class="season-date-rule">
+                <strong>Semanas de temporada</strong>
+                <span>Las fechas proceden directamente de WEEK START / WEEK FINISH del Excel. No se utilizan semanas ISO del año.</span>
               </div>
               <div id="annualWeeksSummary" class="annual-weeks-summary"></div>
             </div>

@@ -14,6 +14,22 @@ function formatDate(iso){
   if(!iso)return"—";
   return new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(`${iso}T12:00:00`));
 }
+function parseISODate(iso){
+  return new Date(`${iso}T12:00:00`);
+}
+function addDaysISO(iso,days){
+  const date=parseISODate(iso);
+  date.setDate(date.getDate()+days);
+  return date.toISOString().slice(0,10);
+}
+function shortDate(iso){
+  if(!iso)return"—";
+  return new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short"}).format(parseISODate(iso));
+}
+function monthYear(iso){
+  if(!iso)return"";
+  return new Intl.DateTimeFormat("es-ES",{month:"short",year:"2-digit"}).format(parseISODate(iso));
+}
 function parseSheetRows(workbook,name){
   const sheet=workbook.Sheets[name];
   return sheet?window.XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:true,blankrows:false}):[];
@@ -183,13 +199,15 @@ export function createPlanningModule(els){
       `${Math.round(summary.load*100)}% carga`,`${summary.hours.toFixed(1)} h`,
       summary.event||""
     ].filter(Boolean).map(x=>`<span>${x}</span>`).join("");
-    const year=Number(summary.startDate?.slice(0,4))||new Date().getFullYear();
-    const monday=mondayOfWeek(year,summary.week);
+    const seasonWeekStart=summary.startDate;
     const sessions=plan.sessions.filter(x=>x.week===selectedWeek);
     let currentDate=null;const byDate={};
     sessions.forEach(x=>{if(x.date)currentDate=x.date;const d=x.date||currentDate;if(!d)return;(byDate[d]??=[]).push(x)});
     const dayCols=[];
-    for(let i=0;i<7;i++){const d=new Date(monday);d.setUTCDate(monday.getUTCDate()+i);const key=iso(d);dayCols.push({date:key,sessions:byDate[key]||[]})}
+    for(let i=0;i<7;i++){
+      const key=addDaysISO(seasonWeekStart,i);
+      dayCols.push({date:key,sessions:byDate[key]||[]});
+    }
     els.weeklySheet.innerHTML=`
       <div class="weekly-sheet-grid">
         ${dayCols.map(day=>`
@@ -272,13 +290,97 @@ export function createPlanningModule(els){
     return byDate;
   }
 
+
+  function loadClass(load,event){
+    if(event)return"event";
+    if(load>=.9)return"high";
+    if(load>=.75)return"build";
+    return"recovery";
+  }
+
+  function scrollTimelineWeekIntoView(week,smooth=false){
+    const card=els.seasonTimeline.querySelector(`[data-season-week="${week}"]`);
+    card?.scrollIntoView({
+      behavior:smooth?"smooth":"auto",
+      block:"nearest",
+      inline:"center"
+    });
+  }
+
+  function selectSeasonWeek(week,openDetailed=false){
+    selectedWeek=Number(week);
+    els.weekSelector.value=String(selectedWeek);
+    renderWeeklySheet();
+    renderSeasonTimeline();
+
+    if(openDetailed){
+      document.querySelector('[data-planning-view="weeklyPlanningPanel"]')?.click();
+    }
+  }
+
+  function renderSeasonTimeline(){
+    if(!plan?.summary?.length)return;
+
+    const current=findCurrentWeek();
+    const chosen=selectedWeek||current?.week||plan.summary[0].week;
+    els.seasonTimeline.replaceChildren();
+
+    let previousMonth="";
+
+    plan.summary.forEach(item=>{
+      const currentMonth=monthYear(item.startDate);
+
+      if(currentMonth!==previousMonth){
+        const divider=document.createElement("div");
+        divider.className="timeline-month-divider";
+        divider.innerHTML=`<span>${currentMonth}</span>`;
+        els.seasonTimeline.appendChild(divider);
+        previousMonth=currentMonth;
+      }
+
+      const button=document.createElement("button");
+      const status=loadClass(item.load,item.event);
+      button.type="button";
+      button.dataset.seasonWeek=item.week;
+      button.className=[
+        "season-week-node",
+        `timeline-${status}`,
+        item.week===chosen?"selected":"",
+        item.week===current?.week?"current":""
+      ].filter(Boolean).join(" ");
+
+      button.innerHTML=`
+        <div class="timeline-node-head">
+          <span>SEM</span>
+          <strong>${item.week}</strong>
+        </div>
+        <div class="timeline-node-dates">
+          ${shortDate(item.startDate)}–${shortDate(item.endDate)}
+        </div>
+        <div class="timeline-node-load">
+          <i style="height:${Math.max(12,Math.round(item.load*56))}px"></i>
+          <b>${Math.round(item.load*100)}%</b>
+        </div>
+        <div class="timeline-node-info">
+          <span>${item.phase||"—"}</span>
+          <span>${item.hours.toFixed(1)} h</span>
+        </div>
+        ${item.event?`<div class="timeline-node-event">${item.event}</div>`:""}
+      `;
+
+      button.addEventListener("click",()=>selectSeasonWeek(item.week,true));
+      els.seasonTimeline.appendChild(button);
+    });
+
+    requestAnimationFrame(()=>scrollTimelineWeekIntoView(chosen));
+  }
+
   function renderCurrentWeek(){
     const summary=findCurrentWeek();
     if(!summary)return;
 
     const byDate=sessionsByDayForWeek(summary.week);
-    const year=Number(summary.startDate?.slice(0,4))||new Date().getFullYear();
-    const monday=mondayOfWeek(year,summary.week);
+    const seasonWeekStart=summary.startDate;
     const todayISO=new Date().toISOString().slice(0,10);
 
     els.currentWeekTitle.textContent=`Semana ${summary.week}`;
@@ -295,9 +397,7 @@ export function createPlanningModule(els){
     let completedSessions=0;
 
     for(let dayIndex=0;dayIndex<7;dayIndex++){
-      const date=new Date(monday);
-      date.setUTCDate(monday.getUTCDate()+dayIndex);
-      const dateISO=iso(date);
+      const dateISO=addDaysISO(seasonWeekStart,dayIndex);
       const sessions=(byDate[dateISO]||[]).filter(item=>item.training);
 
       sessions.forEach((item,index)=>{
@@ -418,7 +518,7 @@ export function createPlanningModule(els){
 
   const render=()=>{
     const has=!!plan;els.emptyState.classList.toggle("hidden",has);els.content.classList.toggle("hidden",!has);if(!has)return;
-    renderKpis();buildYears();renderCalendar();renderEvents();renderPhaseFilter();renderWeekSelector();renderWeeklySheet();renderAnnualSummary();renderLibrary();renderCurrentWeek();
+    renderKpis();buildYears();renderCalendar();renderEvents();renderPhaseFilter();renderWeekSelector();renderWeeklySheet();renderAnnualSummary();renderLibrary();renderCurrentWeek();renderSeasonTimeline();
     setMessage(`Plan cargado: ${plan.fileName}`);
   };
   async function importFile(file){
@@ -436,9 +536,20 @@ export function createPlanningModule(els){
     render();
   });
   els.input.addEventListener("change",e=>importFile(e.target.files[0]));
-  els.weekSelector.addEventListener("change",()=>{selectedWeek=Number(els.weekSelector.value);renderWeeklySheet()});
+  els.weekSelector.addEventListener("change",()=>{
+    selectedWeek=Number(els.weekSelector.value);
+    renderWeeklySheet();
+    renderSeasonTimeline();
+    scrollTimelineWeekIntoView(selectedWeek,true);
+  });
   els.phaseFilter.addEventListener("change",renderAnnualSummary);
   els.annualCalendarYear.addEventListener("change",renderCalendar);
+  els.timelinePrevButton.addEventListener("click",()=>{
+    els.seasonTimeline.scrollBy({left:-Math.max(320,els.seasonTimeline.clientWidth*.75),behavior:"smooth"});
+  });
+  els.timelineNextButton.addEventListener("click",()=>{
+    els.seasonTimeline.scrollBy({left:Math.max(320,els.seasonTimeline.clientWidth*.75),behavior:"smooth"});
+  });
   els.librarySearch.addEventListener("input",renderLibrary);
   document.querySelectorAll(".library-folder").forEach(btn=>btn.addEventListener("click",()=>{
     document.querySelectorAll(".library-folder").forEach(x=>x.classList.toggle("active",x===btn));libraryFilter=btn.dataset.libraryFilter;renderLibrary();

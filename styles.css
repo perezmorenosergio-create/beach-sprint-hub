@@ -600,3 +600,194 @@ input:focus,select:focus{outline:3px solid #93c5fd;border-color:var(--blue)}
   .current-week-progress{min-width:0}
   .today-session{align-items:flex-start;flex-direction:column}
 }
+
+.season-timeline-panel{
+  overflow:hidden;
+}
+.timeline-legend{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  font-size:11px;
+  color:#64748b;
+}
+.timeline-legend span{
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.legend-load{
+  width:9px;
+  height:9px;
+  border-radius:50%;
+}
+.legend-load.recovery{background:#22c55e}
+.legend-load.build{background:#eab308}
+.legend-load.high{background:#f97316}
+.legend-load.event{background:#dc2626}
+.season-timeline-shell{
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) 42px;
+  gap:8px;
+  align-items:stretch;
+}
+.timeline-arrow{
+  border:1px solid #cbd5e1;
+  border-radius:12px;
+  background:#fff;
+  font-size:28px;
+  font-weight:900;
+  color:#0f172a;
+}
+.season-timeline{
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  overscroll-behavior-inline:contain;
+  scroll-snap-type:x proximity;
+  scrollbar-width:thin;
+  padding:6px 3px 14px;
+}
+.timeline-month-divider{
+  flex:0 0 36px;
+  position:relative;
+  border-left:1px dashed #94a3b8;
+}
+.timeline-month-divider span{
+  position:absolute;
+  top:0;
+  left:6px;
+  writing-mode:vertical-rl;
+  text-transform:uppercase;
+  font-size:10px;
+  font-weight:900;
+  color:#64748b;
+}
+.season-week-node{
+  flex:0 0 126px;
+  min-height:174px;
+  border:2px solid transparent;
+  border-radius:15px;
+  padding:10px;
+  background:#f8fafc;
+  color:#0f172a;
+  text-align:left;
+  scroll-snap-align:center;
+  position:relative;
+}
+.season-week-node:hover{
+  transform:translateY(-2px);
+}
+.season-week-node.selected{
+  border-color:#0f172a;
+  box-shadow:0 5px 16px rgba(15,23,42,.16);
+}
+.season-week-node.current::after{
+  content:"ACTUAL";
+  position:absolute;
+  top:-7px;
+  right:7px;
+  border-radius:999px;
+  background:#2563eb;
+  color:#fff;
+  padding:3px 6px;
+  font-size:8px;
+  font-weight:950;
+}
+.timeline-recovery{background:#f0fdf4}
+.timeline-build{background:#fefce8}
+.timeline-high{background:#fff7ed}
+.timeline-event{background:#fef2f2}
+.timeline-node-head{
+  display:flex;
+  align-items:baseline;
+  gap:4px;
+}
+.timeline-node-head span{
+  font-size:9px;
+  font-weight:900;
+  color:#64748b;
+}
+.timeline-node-head strong{
+  font-size:23px;
+}
+.timeline-node-dates{
+  font-size:11px;
+  color:#64748b;
+  margin-top:1px;
+}
+.timeline-node-load{
+  height:65px;
+  display:flex;
+  align-items:flex-end;
+  gap:8px;
+  margin-top:8px;
+}
+.timeline-node-load i{
+  display:block;
+  width:15px;
+  max-height:56px;
+  border-radius:6px 6px 2px 2px;
+  background:#2563eb;
+}
+.timeline-recovery .timeline-node-load i{background:#22c55e}
+.timeline-build .timeline-node-load i{background:#eab308}
+.timeline-high .timeline-node-load i{background:#f97316}
+.timeline-event .timeline-node-load i{background:#dc2626}
+.timeline-node-load b{
+  font-size:13px;
+  padding-bottom:1px;
+}
+.timeline-node-info{
+  display:flex;
+  justify-content:space-between;
+  gap:4px;
+  margin-top:7px;
+  font-size:10px;
+  font-weight:850;
+}
+.timeline-node-event{
+  margin-top:8px;
+  border-radius:7px;
+  background:rgba(220,38,38,.12);
+  color:#991b1b;
+  padding:5px;
+  font-size:9px;
+  line-height:1.2;
+  font-weight:850;
+  overflow:hidden;
+  max-height:32px;
+}
+.season-date-rule{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  margin-bottom:12px;
+  border-radius:12px;
+  background:#eff6ff;
+  color:#1e3a8a;
+  padding:10px 12px;
+  font-size:12px;
+}
+.season-date-rule strong{
+  white-space:nowrap;
+}
+@media(max-width:650px){
+  .season-timeline-shell{
+    grid-template-columns:34px minmax(0,1fr) 34px;
+  }
+  .timeline-arrow{
+    font-size:22px;
+    padding:0;
+  }
+  .season-week-node{
+    flex-basis:118px;
+  }
+  .timeline-legend{
+    display:none;
+  }
+  .season-date-rule{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+}
