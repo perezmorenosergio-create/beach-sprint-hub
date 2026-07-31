@@ -848,3 +848,17 @@ input:focus,select:focus{outline:3px solid #93c5fd;border-color:var(--blue)}
     grid-template-columns:1fr;
   }
 }
+
+.danger-outline{
+  border-color:#fecaca;
+  color:#b91c1c;
+}
+.danger-outline:hover{
+  background:#fef2f2;
+}
+@media(max-width:650px){
+  #resetAppButton,
+  #logoutButton{
+    min-height:44px;
+  }
+}

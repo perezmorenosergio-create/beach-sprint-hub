@@ -1,5 +1,62 @@
-const CACHE="bst-v36-athlete-cloud-migration";
-const ASSETS=["./","./index.html","./styles.css?v=36","./app.js?v=36","./config.js","./import.js","./timer.js","./planning.js","./manifest.json"];
-self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
-self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;e.respondWith(fetch(e.request).then(r=>{const clone=r.clone();caches.open(CACHE).then(c=>c.put(e.request,clone));return r}).catch(()=>caches.match(e.request)))});
+
+const CACHE="bst-v37-mobile-fix";
+const ASSETS=[
+  "./",
+  "./index.html",
+  "./styles.css?v=37",
+  "./app.js?v=37",
+  "./planning.js",
+  "./config.js",
+  "./import.js",
+  "./timer.js"
+];
+
+self.addEventListener("install",event=>{
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).catch(()=>{})
+  );
+});
+
+self.addEventListener("activate",event=>{
+  event.waitUntil(
+    Promise.all([
+      caches.keys().then(names=>
+        Promise.all(names.filter(name=>name!==CACHE).map(name=>caches.delete(name)))
+      ),
+      self.clients.claim()
+    ])
+  );
+});
+
+self.addEventListener("fetch",event=>{
+  const request=event.request;
+  if(request.method!=="GET")return;
+
+  const url=new URL(request.url);
+  const isAppAsset=
+    url.origin===self.location.origin &&
+    (
+      request.mode==="navigate" ||
+      url.pathname.endsWith(".js") ||
+      url.pathname.endsWith(".css") ||
+      url.pathname.endsWith(".html")
+    );
+
+  if(isAppAsset){
+    event.respondWith(
+      fetch(request,{cache:"no-store"})
+        .then(response=>{
+          const clone=response.clone();
+          caches.open(CACHE).then(cache=>cache.put(request,clone)).catch(()=>{});
+          return response;
+        })
+        .catch(()=>caches.match(request).then(r=>r||caches.match("./index.html")))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then(cached=>cached||fetch(request))
+  );
+});

@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.6 athlete cloud migration loaded");
+console.info("Beach Sprint Hub v3.7 mobile logout cache fix loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -185,6 +185,89 @@ async function enterApp(user){
   renderAll();
   setSync("☁️ Sincronizado","ok");
 }
+
+async function forceLogout(){
+  try{
+    setSync("Cerrando sesión…","loading");
+  }catch{}
+
+  // Immediately clear the local UI so the user is never trapped.
+  appLoadToken++;
+  currentUser=null;
+  athletes=[];
+  sessions=[];
+  selectedIds.clear();
+  session=null;
+
+  try{
+    $("appShell").classList.add("hidden");
+    $("authScreen").classList.remove("hidden");
+    $("passwordInput").value="";
+  }catch{}
+
+  // Best effort cloud logout. UI does not wait for it.
+  try{
+    await Promise.race([
+      client.auth.signOut({scope:"local"}),
+      new Promise(resolve=>setTimeout(resolve,2500))
+    ]);
+  }catch(error){
+    console.warn("Supabase logout did not complete, local logout applied:",error);
+  }
+
+  // Remove Supabase auth tokens from this browser.
+  try{
+    Object.keys(localStorage).forEach(key=>{
+      if(key.startsWith("sb-") && key.endsWith("-auth-token")){
+        localStorage.removeItem(key);
+      }
+    });
+    Object.keys(sessionStorage).forEach(key=>{
+      if(key.startsWith("sb-") && key.endsWith("-auth-token")){
+        sessionStorage.removeItem(key);
+      }
+    });
+  }catch{}
+
+  window.location.replace(window.location.pathname+"?logout="+Date.now());
+}
+
+async function resetMobileApp(){
+  if(!confirm("Se borrará la caché y los datos locales de este dispositivo. Los datos sincronizados en Supabase no se eliminan. ¿Continuar?"))return;
+
+  try{
+    if("serviceWorker" in navigator){
+      const registrations=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg=>reg.unregister()));
+    }
+  }catch(error){
+    console.warn("Could not unregister service worker:",error);
+  }
+
+  try{
+    if("caches" in window){
+      const names=await caches.keys();
+      await Promise.all(names.map(name=>caches.delete(name)));
+    }
+  }catch(error){
+    console.warn("Could not clear caches:",error);
+  }
+
+  try{
+    Object.keys(localStorage).forEach(key=>{
+      if(
+        key.startsWith("bst_") ||
+        (key.startsWith("sb-") && key.endsWith("-auth-token"))
+      ){
+        localStorage.removeItem(key);
+      }
+    });
+    sessionStorage.clear();
+  }catch{}
+
+  window.location.replace(window.location.pathname+"?reset="+Date.now());
+}
+
 function leaveApp(){
   appLoadToken++;
   currentUser=null;athletes=[];sessions=[];selectedIds.clear();session=null;
@@ -572,7 +655,8 @@ planningModule=createPlanningModule({
 
 $("loginTab").addEventListener("click",()=>setAuthMode("login"));$("signupTab").addEventListener("click",()=>setAuthMode("signup"));
 $("authForm").addEventListener("submit",handleAuth);$("forgotPasswordButton").addEventListener("click",forgotPassword);
-$("logoutButton").addEventListener("click",()=>client.auth.signOut());
+$("logoutButton").addEventListener("click",forceLogout);
+$("resetAppButton").addEventListener("click",resetMobileApp);
 document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>showView(t.dataset.view)));
 $("toggleAllAthletes").addEventListener("click",()=>{const all=athletes.length&&athletes.every(a=>selectedIds.has(a.id));selectedIds=all?new Set():new Set(athletes.map(a=>a.id));renderSessionAthletes()});
 $("athleteForm").addEventListener("submit",addAthlete);$("athleteFileInput").addEventListener("change",e=>handleImport(e.target.files[0]));$("downloadTemplateButton").addEventListener("click",downloadAthleteTemplate);
@@ -580,5 +664,26 @@ $("prepareTimerButton").addEventListener("click",prepareTimer);$("startAllButton
 $("undoButton").addEventListener("click",()=>{undoAction(session,actions.pop());updateTimer()});$("finishSessionButton").addEventListener("click",finishSession);
 $("exportResultsButton").addEventListener("click",exportResults);$("newSessionButton").addEventListener("click",()=>{session=null;$("globalTimer").textContent="00:00.000";showView("sessionView")});
 
-client.auth.onAuthStateChange(async(_event,authSession)=>{if(authSession?.user)await enterApp(authSession.user);else leaveApp()});
-const {data:{session:initialSession}}=await client.auth.getSession();if(initialSession?.user)await enterApp(initialSession.user);else leaveApp();
+client.auth.onAuthStateChange(async(_event,authSession)=>{
+  const forcedLogout=new URLSearchParams(location.search).has("logout");
+  const forcedReset=new URLSearchParams(location.search).has("reset");
+
+  if(forcedLogout||forcedReset){
+    leaveApp();
+    return;
+  }
+
+  if(authSession?.user)await enterApp(authSession.user);
+  else leaveApp();
+});
+const forcedLogout=new URLSearchParams(location.search).has("logout");
+const forcedReset=new URLSearchParams(location.search).has("reset");
+
+if(forcedLogout||forcedReset){
+  leaveApp();
+  history.replaceState({},document.title,location.pathname);
+}else{
+  const {data:{session:initialSession}}=await client.auth.getSession();
+  if(initialSession?.user)await enterApp(initialSession.user);
+  else leaveApp();
+}
