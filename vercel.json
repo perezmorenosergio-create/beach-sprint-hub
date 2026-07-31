@@ -2,13 +2,7 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {"key":"X-Content-Type-Options","value":"nosniff"},
-        {"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"},
-        {"key":"Cache-Control","value":"no-store, max-age=0, must-revalidate"}
-      ]
-    }
+    {"source":"/(index.html|app.js|planning.js|config.js|import.js|timer.js|sw.js|styles.css)","headers":[{"key":"Cache-Control","value":"no-store, no-cache, must-revalidate, max-age=0"}]},
+    {"source":"/(.*)","headers":[{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"}]}
   ]
 }

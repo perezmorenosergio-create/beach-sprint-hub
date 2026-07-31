@@ -7,7 +7,7 @@
   <title>Beach Sprint Timer</title>
   <script>
     (function(){
-      window.BST_VERSION="3.17";
+      window.BST_VERSION="3.18";
 
       window.BSTShowView=function(viewId){
         var target=document.getElementById(viewId);
@@ -46,7 +46,7 @@
         if(app)app.classList.add("hidden");
         if(auth)auth.classList.remove("hidden");
 
-        location.replace(location.pathname+"?loggedout=317&t="+Date.now());
+        location.replace(location.pathname+"?loggedout=318&t="+Date.now());
         return false;
       };
 
@@ -70,17 +70,17 @@
 
         var badge=document.createElement("span");
         badge.id="buildVersionBadge";
-        badge.textContent="v3.17";
+        badge.textContent="v3.18";
         document.body.appendChild(badge);
       });
     })();
   </script>
 
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=317">
+  <link rel="stylesheet" href="styles.css?v=318">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=317"></script>
+  <script type="module" src="app.js?v=318"></script>
 </head>
 <body>
   <section id="authScreen" class="auth-screen">

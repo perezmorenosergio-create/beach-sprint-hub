@@ -1,8 +1,8 @@
-console.info("Beach Sprint Hub v3.17 planning init root fix loaded");
-import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js?v=317";
-import {importAthleteFile,downloadAthleteTemplate} from "./import.js?v=317";
-import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js?v=317";
-import {createPlanningModule} from "./planning.js?v=317";
+console.info("Beach Sprint Hub v3.18 cloud sync recovery loaded");
+import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js?v=318";
+import {importAthleteFile,downloadAthleteTemplate} from "./import.js?v=318";
+import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js?v=318";
+import {createPlanningModule} from "./planning.js?v=318";
 
 const client=window.supabase.createClient(
   SUPABASE_URL,
@@ -36,6 +36,7 @@ let planningModule=null;
 let appLoadToken=0;
 
 const LOCAL_ATHLETES_KEY="bst_local_athletes_v1";
+const LOCAL_SESSIONS_KEY="bst_local_sessions_v1";
 
 function loadLocalAthletes(){
   try{return JSON.parse(localStorage.getItem(LOCAL_ATHLETES_KEY))||[]}catch{return[]}
@@ -43,6 +44,31 @@ function loadLocalAthletes(){
 function saveLocalAthletes(){
   localStorage.setItem(LOCAL_ATHLETES_KEY,JSON.stringify(athletes));
 }
+
+function loadLocalSessions(){
+  try{return JSON.parse(localStorage.getItem(LOCAL_SESSIONS_KEY))||[]}catch{return[]}
+}
+function saveLocalSessions(){
+  try{localStorage.setItem(LOCAL_SESSIONS_KEY,JSON.stringify(sessions.slice(0,100)))}catch{}
+}
+function sessionCloudPayload(item){
+  return {
+    user_id:currentUser.id,
+    name:item.name,
+    session_type:item.session_type||item.format||"tt",
+    start_mode:item.start_mode||item.startMode||"joint",
+    lap_count:Number(item.lap_count||item.lapCount||1),
+    status:item.status||"finished",
+    session_date:item.session_date||item.created_at||new Date().toISOString()
+  };
+}
+async function retryLocalAthleteSync(){
+  const local=loadLocalAthletes();
+  for(const athlete of local){
+    if(String(athlete.id||"").startsWith("local-")) await syncAthleteInBackground(athlete);
+  }
+}
+
 function localAthleteId(){
   return `local-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
 }
@@ -262,6 +288,7 @@ async function enterApp(user){
 
   // Immediate first paint from this device.
   athletes=loadLocalAthletes();
+  sessions=loadLocalSessions();
   selectedIds=new Set(athletes.slice(0,4).map(a=>a.id));
   renderAll();
   setSync("☁️ Sincronizando…","loading");
@@ -269,7 +296,8 @@ async function enterApp(user){
   // Never block the interface while waiting for Supabase.
   Promise.allSettled([
     loadAthletes(loadToken),
-    loadSessions()
+    loadSessions(),
+    retryLocalAthleteSync()
   ]).then(results=>{
     if(loadToken!==appLoadToken)return;
 
@@ -527,6 +555,7 @@ async function loadSessions(){
       client
         .from("sessions")
         .select("*")
+        .eq("user_id",currentUser.id)
         .order("session_date",{ascending:false})
         .limit(100),
       8000,
@@ -535,10 +564,14 @@ async function loadSessions(){
 
     const {data,error}=response;
     if(error)throw error;
-    sessions=data||[];
+    const local=loadLocalSessions();
+    const cloud=data||[];
+    const seen=new Set(cloud.map(x=>String(x.id||x.session_date||x.name)));
+    sessions=[...cloud,...local.filter(x=>!seen.has(String(x.id||x.session_date||x.name)))];
+    saveLocalSessions();
   }catch(error){
     console.warn("Sessions could not be loaded; keeping local interface active:",error);
-    sessions=sessions||[];
+    sessions=loadLocalSessions();
   }
 }
 function athleteMeta(a){return [a.club,a.category,a.bib?`Dorsal: ${a.bib}`:""].filter(Boolean).join(" · ")}
@@ -718,8 +751,12 @@ async function finishSession(){
         const {error:se}=await client.from("splits").insert(rows);if(se)throw se;
       }
     }
-    sessions.unshift(saved);setSync("☁️ Sesión guardada","ok");
-  }catch(error){alert(`La sesión se mantiene en pantalla, pero no pudo subirse: ${error.message}`);setSync("Error al guardar","error")}
+    sessions.unshift(saved);saveLocalSessions();setSync("☁️ Sesión guardada","ok");
+  }catch(error){
+    const localRecord={id:`local-session-${Date.now()}`,...sessionCloudPayload({name:session.name,format:session.format,startMode:session.startMode,lapCount:session.lapCount,status:"finished",session_date:new Date().toISOString()}),pending_sync:true};
+    sessions.unshift(localRecord);saveLocalSessions();
+    alert(`La sesión se ha guardado en este dispositivo y se reintentará subir: ${error.message}`);setSync("Sesión pendiente de sincronizar","warning")
+  }
   renderResults();renderHistory();showView("resultsView");saving=false;
 }
 function renderResults(){

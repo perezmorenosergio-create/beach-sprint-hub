@@ -1,4 +1,4 @@
-const CACHE="bst-v317-root-fix";
+const CACHE="bst-v318-root-fix";
 
 self.addEventListener("install",event=>{self.skipWaiting();});
 self.addEventListener("activate",event=>{
