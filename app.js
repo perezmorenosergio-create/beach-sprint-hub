@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.10 navigation recovery loaded");
+console.info("Beach Sprint Hub v3.11 hard navigation loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -129,14 +129,9 @@ function togglePasswordVisibility(){
 function setAuthMessage(text,error=false){$("authMessage").textContent=text;$("authMessage").className=`auth-message ${error?"error":"success"}`}
 function setSync(text,state="ok"){$("syncBanner").textContent=text;$("syncBanner").dataset.state=state}
 function showView(id){
-  const target=$(id);
-  if(!target){
-    console.warn("View not found:",id);
-    return;
+  if(typeof window.BSTShowView==="function"){
+    return window.BSTShowView(id);
   }
-  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v===target));
-  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===id));
-  window.scrollTo({top:0,behavior:"auto"});
 }
 function setAuthMode(mode){
   authMode=mode;const signup=mode==="signup";

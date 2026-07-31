@@ -862,3 +862,23 @@ input:focus,select:focus{outline:3px solid #93c5fd;border-color:var(--blue)}
     min-height:44px;
   }
 }
+
+#buildVersionBadge{
+  position:fixed;
+  right:6px;
+  bottom:6px;
+  z-index:99999;
+  border-radius:999px;
+  background:#0f172a;
+  color:#fff;
+  padding:4px 7px;
+  font:800 10px/1 system-ui,sans-serif;
+  opacity:.72;
+  pointer-events:none;
+}
+.tab{
+  position:relative;
+  z-index:100;
+  touch-action:manipulation;
+  pointer-events:auto!important;
+}
