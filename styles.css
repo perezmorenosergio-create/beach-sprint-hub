@@ -141,3 +141,250 @@ input:focus,select:focus{outline:3px solid #93c5fd;border-color:var(--blue)}
   min-height:22px;
   line-height:1.35;
 }
+
+.eyebrow{
+  margin:0 0 5px;
+  color:#2563eb;
+  font-size:12px;
+  font-weight:950;
+  letter-spacing:.12em;
+}
+.planning-hero{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+}
+.planning-upload{
+  flex:0 0 auto;
+}
+.planning-message{
+  min-height:24px;
+  margin:0 0 12px;
+  font-weight:850;
+  color:#166534;
+}
+.planning-message.error{
+  color:#b91c1c;
+}
+.planning-empty{
+  display:grid;
+  gap:5px;
+}
+.planning-empty strong{
+  font-size:18px;
+  color:#0f172a;
+}
+.planning-kpis{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:14px;
+}
+.planning-kpi{
+  background:#0f172a;
+  color:#fff;
+  border-radius:18px;
+  padding:16px;
+}
+.planning-kpi span{
+  display:block;
+  opacity:.7;
+  font-size:13px;
+}
+.planning-kpi strong{
+  display:block;
+  margin-top:4px;
+  font-size:28px;
+}
+.planning-grid{
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:14px;
+}
+.annual-weeks-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:9px;
+}
+.annual-week-card{
+  border:2px solid transparent;
+  border-radius:14px;
+  padding:11px;
+  text-align:left;
+  color:#0f172a;
+  min-height:105px;
+}
+.annual-week-card.active{
+  border-color:#0f172a;
+  box-shadow:0 0 0 2px #fff inset;
+}
+.annual-week-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.annual-week-top strong{
+  font-size:18px;
+}
+.annual-week-hours{
+  font-size:21px;
+  font-weight:950;
+  margin-top:7px;
+}
+.annual-week-phase{
+  margin-top:3px;
+  font-size:12px;
+  opacity:.72;
+}
+.annual-week-event{
+  margin-top:8px;
+  font-size:11px;
+  font-weight:850;
+  line-height:1.25;
+}
+.load-max{background:#fecaca}
+.load-high{background:#fed7aa}
+.load-medium{background:#fef3c7}
+.load-low{background:#dbeafe}
+.load-recovery{background:#dcfce7}
+.week-meta{
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+  margin-bottom:13px;
+}
+.week-meta span{
+  border-radius:999px;
+  background:#e2e8f0;
+  padding:7px 10px;
+  font-size:12px;
+  font-weight:850;
+}
+.week-meta .week-event-chip{
+  background:#dbeafe;
+  color:#1d4ed8;
+}
+.week-days{
+  display:grid;
+  gap:10px;
+}
+.week-day-card{
+  border:1px solid #cbd5e1;
+  border-radius:14px;
+  overflow:hidden;
+}
+.week-day-card h3{
+  margin:0;
+  padding:10px 12px;
+  background:#f8fafc;
+  text-transform:capitalize;
+  font-size:15px;
+}
+.week-session-row{
+  display:grid;
+  grid-template-columns:32px minmax(0,1fr) auto;
+  gap:9px;
+  align-items:start;
+  padding:11px 12px;
+  border-top:1px solid #e2e8f0;
+}
+.week-session-number{
+  width:27px;
+  height:27px;
+  border-radius:9px;
+  display:grid;
+  place-items:center;
+  background:#0f172a;
+  color:#fff;
+  font-size:12px;
+  font-weight:950;
+}
+.week-session-row strong,
+.week-session-row small{
+  display:block;
+}
+.week-session-row small{
+  margin-top:3px;
+  color:#64748b;
+}
+.week-session-zones{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:4px;
+  max-width:185px;
+}
+.week-session-zones span{
+  font-size:10px;
+  font-weight:850;
+  border-radius:999px;
+  background:#e2e8f0;
+  padding:4px 6px;
+}
+.week-zone-summary{
+  display:grid;
+  gap:7px;
+  margin-top:14px;
+}
+.zone-summary-row{
+  display:grid;
+  grid-template-columns:55px 1fr 65px;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+}
+.zone-summary-track{
+  height:9px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#e2e8f0;
+}
+.zone-summary-track div{
+  height:100%;
+  border-radius:999px;
+  background:#2563eb;
+}
+.zone-summary-row strong{
+  text-align:right;
+}
+.library-search{
+  max-width:310px;
+}
+.planning-library-table th{
+  position:sticky;
+  top:0;
+  z-index:1;
+}
+@media(max-width:900px){
+  .planning-grid{
+    grid-template-columns:1fr;
+  }
+  .planning-kpis{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:620px){
+  .planning-hero{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .planning-upload{
+    width:100%;
+    text-align:center;
+  }
+  .annual-weeks-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .planning-kpis{
+    grid-template-columns:1fr 1fr;
+  }
+  .week-session-row{
+    grid-template-columns:30px 1fr;
+  }
+  .week-session-zones{
+    grid-column:2;
+    justify-content:flex-start;
+    max-width:none;
+  }
+}

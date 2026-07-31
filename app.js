@@ -1,7 +1,8 @@
-console.info("Beach Sprint Timer v2.4 import timeout fix loaded");
+console.info("Beach Sprint Hub v3.0 trainer planning loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
+import {createPlanningModule} from "./planning.js";
 
 const client=window.supabase.createClient(
   SUPABASE_URL,
@@ -163,11 +164,24 @@ async function addAthlete(event){
   athletes.push(data);athletes.sort((a,b)=>a.name.localeCompare(b.name));selectedIds.add(data.id);event.target.reset();renderAll();setImport(`${name} añadido.`);setSync("☁️ Sincronizado","ok");
 }
 function setImport(text,error=false){$("importMessage").textContent=text;$("importMessage").style.color=error?"#b91c1c":"#166534"}
+async function insertAthleteBatch(rows){
+  const response=await withTimeout(
+    client
+      .from("athletes")
+      .insert(rows),
+    15000,
+    "Supabase está tardando demasiado en guardar el lote."
+  );
+
+  if(response.error)throw response.error;
+}
+
 async function handleImport(file){
   if(!file)return;
 
   const input=$("athleteFileInput");
   input.disabled=true;
+
   setImport("Leyendo archivo…");
   setSync("☁️ Preparando importación…","loading");
 
@@ -180,8 +194,8 @@ async function handleImport(file){
       athletes.map(athlete=>athlete.name.toLowerCase())
     );
 
-    const pending=[];
     const seenInFile=new Set();
+    const pending=[];
 
     for(const athlete of imported){
       const normalizedName=athlete.name.toLowerCase();
@@ -194,7 +208,14 @@ async function handleImport(file){
       }
 
       seenInFile.add(normalizedName);
-      pending.push(athlete);
+
+      pending.push({
+        user_id:currentUser.id,
+        name:athlete.name,
+        club:athlete.club||null,
+        category:athlete.category||null,
+        bib:athlete.bib||null
+      });
     }
 
     if(!pending.length){
@@ -203,106 +224,51 @@ async function handleImport(file){
       return;
     }
 
-    let savedCount=0;
-    let skippedCount=imported.length-pending.length;
-    const failed=[];
+    setImport(`Guardando ${pending.length} deportistas en bloque…`);
+    setSync(
+      `☁️ Guardando ${pending.length} deportistas…`,
+      "loading"
+    );
 
-    for(let index=0;index<pending.length;index++){
-      const athlete=pending[index];
-
-      setImport(
-        `Guardando ${index+1}/${pending.length}: ${athlete.name}…`
+    try{
+      await insertAthleteBatch(pending);
+    }catch(batchError){
+      console.warn(
+        "El guardado en bloque falló. Se intentará por grupos:",
+        batchError
       );
-      setSync(
-        `☁️ Guardando ${index+1} de ${pending.length}…`,
-        "loading"
-      );
 
-      const payload={
-        user_id:currentUser.id,
-        name:athlete.name,
-        club:athlete.club||null,
-        category:athlete.category||null,
-        bib:athlete.bib||null
-      };
+      const chunkSize=25;
 
-      try{
-        const response=await withTimeout(
-          client
-            .from("athletes")
-            .insert(payload)
-            .select()
-            .single(),
-          12000,
-          `Supabase no respondió al guardar a ${athlete.name}.`
+      for(let start=0;start<pending.length;start+=chunkSize){
+        const chunk=pending.slice(start,start+chunkSize);
+        const completed=Math.min(start+chunk.length,pending.length);
+
+        setImport(
+          `Guardando ${completed}/${pending.length} deportistas…`
         );
 
-        if(response.error)throw response.error;
-
-        athletes.push(response.data);
-        selectedIds.add(response.data.id);
-        existingNames.add(response.data.name.toLowerCase());
-        savedCount++;
-      }catch(error){
-        console.error(`Error importing ${athlete.name}:`,error);
-
-        // A timed-out request may still have reached the server.
-        // Verify before marking it as failed.
-        try{
-          const verification=await withTimeout(
-            client
-              .from("athletes")
-              .select("*")
-              .ilike("name",athlete.name)
-              .limit(1),
-            6000,
-            "No se pudo verificar el guardado."
-          );
-
-          if(!verification.error && verification.data?.length){
-            const savedAthlete=verification.data[0];
-
-            if(!athletes.some(item=>item.id===savedAthlete.id)){
-              athletes.push(savedAthlete);
-              selectedIds.add(savedAthlete.id);
-            }
-
-            existingNames.add(savedAthlete.name.toLowerCase());
-            savedCount++;
-            continue;
-          }
-        }catch(verificationError){
-          console.error(
-            `Verification failed for ${athlete.name}:`,
-            verificationError
-          );
-        }
-
-        failed.push(athlete.name);
+        await insertAthleteBatch(chunk);
       }
     }
 
-    athletes.sort((a,b)=>a.name.localeCompare(b.name,"es"));
+    setImport("Actualizando la lista…");
+
+    await loadAthletes();
     renderAll();
 
-    if(failed.length){
-      setImport(
-        `${savedCount} importados. No se pudieron guardar: ${failed.join(", ")}.`,
-        true
-      );
-      setSync("Importación incompleta","error");
-    }else{
-      const skippedText=skippedCount
-        ? ` ${skippedCount} duplicados omitidos.`
-        : "";
+    const skipped=imported.length-pending.length;
+    const skippedText=skipped
+      ? ` ${skipped} duplicados omitidos.`
+      : "";
 
-      setImport(
-        `${savedCount} deportistas importados correctamente.${skippedText}`
-      );
-      setSync("☁️ Sincronizado","ok");
-    }
+    setImport(
+      `${pending.length} deportistas importados correctamente.${skippedText}`
+    );
+    setSync("☁️ Sincronizado","ok");
   }catch(error){
     console.error("Athlete import failed:",error);
+
     setImport(
       error?.message||"No se pudo importar el archivo.",
       true
@@ -388,6 +354,27 @@ $("rememberAccessInput").addEventListener("change",()=>{
   const remember=$("rememberAccessInput").checked;
   localStorage.setItem(REMEMBER_ACCESS_KEY,String(remember));
   if(!remember)localStorage.removeItem(REMEMBER_EMAIL_KEY);
+});
+
+
+createPlanningModule({
+  input:$("annualPlanFileInput"),
+  message:$("planningImportMessage"),
+  emptyState:$("planningEmptyState"),
+  content:$("planningContent"),
+  weeksKpi:$("planningWeeksKpi"),
+  hoursKpi:$("planningHoursKpi"),
+  sessionsKpi:$("planningSessionsKpi"),
+  eventsKpi:$("planningEventsKpi"),
+  weeksGrid:$("annualWeeksGrid"),
+  weekSelector:$("weekSelector"),
+  selectedWeekTitle:$("selectedWeekTitle"),
+  selectedWeekMeta:$("selectedWeekMeta"),
+  selectedWeekSessions:$("selectedWeekSessions"),
+  selectedWeekTotals:$("selectedWeekTotals"),
+  phaseFilter:$("planningPhaseFilter"),
+  librarySearch:$("trainingLibrarySearch"),
+  libraryTable:$("trainingLibraryTable")
 });
 
 $("loginTab").addEventListener("click",()=>setAuthMode("login"));$("signupTab").addEventListener("click",()=>setAuthMode("signup"));
