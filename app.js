@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.11 hard navigation loaded");
+console.info("Beach Sprint Hub v3.12 planning athlete selector loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -46,6 +46,54 @@ function saveLocalAthletes(){
 function localAthleteId(){
   return `local-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
 }
+
+function refreshPlanningAthleteSelector(){
+  const select=$("planningAthleteSelect");
+  if(!select)return;
+
+  const previous=select.value||"general";
+  const source=Array.isArray(athletes)&&athletes.length
+    ? athletes
+    : loadLocalAthletes();
+
+  const unique=[];
+  const seen=new Set();
+
+  source.forEach(athlete=>{
+    const name=String(athlete?.name||"").trim();
+    const id=String(athlete?.id||"").trim();
+    const key=(id||name).toLowerCase();
+    if(!name||!key||seen.has(key))return;
+    seen.add(key);
+    unique.push({id:id||`name-${key}`,name});
+  });
+
+  select.replaceChildren();
+
+  const general=document.createElement("option");
+  general.value="general";
+  general.textContent="Plan general";
+  select.appendChild(general);
+
+  unique
+    .sort((a,b)=>a.name.localeCompare(b.name,"es"))
+    .forEach(athlete=>{
+      const option=document.createElement("option");
+      option.value=athlete.id;
+      option.textContent=athlete.name;
+      select.appendChild(option);
+    });
+
+  select.value=[...select.options].some(option=>option.value===previous)
+    ? previous
+    : "general";
+
+  select.disabled=false;
+  select.dataset.athleteCount=String(unique.length);
+}
+
+window.BSTRefreshPlanningAthletes=refreshPlanningAthleteSelector;
+
 async function syncAthleteInBackground(athlete){
   try{
     const normalizedName=String(athlete.name||"").trim().toLowerCase();
@@ -672,6 +720,7 @@ function renderAll(){
   renderSessionAthletes();
   renderAthletes();
   renderHistory();
+  refreshPlanningAthleteSelector();
   try{
     planningModule?.setAthletes(athletes,currentUser?.id);
   }catch(error){
@@ -730,6 +779,14 @@ document.querySelectorAll(".tab").forEach(tab=>{
     event.preventDefault();
     const viewId=tab.dataset.view;
     if(viewId)showView(viewId);
+    if(viewId==="planningView"){
+      refreshPlanningAthleteSelector();
+      try{
+        planningModule?.setAthletes(athletes,currentUser?.id);
+      }catch(error){
+        console.warn("Planning selector refresh failed:",error);
+      }
+    }
   });
 });
 
@@ -783,6 +840,8 @@ planningModule=createPlanningModule({
   librarySearch:$("trainingLibrarySearch"),
   libraryTable:$("trainingLibraryTable")
 });
+  refreshPlanningAthleteSelector();
+  planningModule?.setAthletes(athletes,currentUser?.id);
 } catch (error) {
   console.error("Planning module initialization failed:",error);
   planningModule=null;
@@ -793,6 +852,16 @@ planningModule=createPlanningModule({
   }
 }
 
+
+
+const planningAthleteSelect=$("planningAthleteSelect");
+if(planningAthleteSelect){
+  ["focus","pointerdown","touchstart"].forEach(eventName=>{
+    planningAthleteSelect.addEventListener(eventName,()=>{
+      refreshPlanningAthleteSelector();
+    },{passive:true});
+  });
+}
 
 $("toggleAllAthletes").addEventListener("click",()=>{const all=athletes.length&&athletes.every(a=>selectedIds.has(a.id));selectedIds=all?new Set():new Set(athletes.map(a=>a.id));renderSessionAthletes()});
 $("athleteForm").addEventListener("submit",addAthlete);$("athleteFileInput").addEventListener("change",e=>handleImport(e.target.files[0]));$("downloadTemplateButton").addEventListener("click",downloadAthleteTemplate);

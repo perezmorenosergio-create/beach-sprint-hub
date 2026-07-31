@@ -882,3 +882,17 @@ input:focus,select:focus{outline:3px solid #93c5fd;border-color:var(--blue)}
   touch-action:manipulation;
   pointer-events:auto!important;
 }
+
+#planningAthleteSelect{
+  position:relative;
+  z-index:500;
+  pointer-events:auto!important;
+  touch-action:manipulation;
+  min-height:44px;
+  background:#fff;
+  color:#0f172a;
+  opacity:1;
+}
+#planningAthleteSelect:disabled{
+  opacity:1;
+}

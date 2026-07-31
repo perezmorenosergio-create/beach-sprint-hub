@@ -1,15 +1,9 @@
-# Beach Sprint Hub v3.11 — Hard Navigation Fix
+# Beach Sprint Hub v3.12 — Planning Athlete Selector Fix
 
-La navegación ya no depende de app.js, Supabase ni planificación.
-
-- Script mínimo de navegación incluido directamente en index.html.
-- onclick directo en cada pestaña.
-- Cierre de sesión de emergencia directo.
-- Las vistas cambian también mediante style.display, no solo clases CSS.
-- Insignia v3.11 visible abajo a la derecha para confirmar la versión.
-- Service Worker sin caché de aplicación antigua.
-
-Prueba:
-1. Abrir con ?v=311.
-2. Confirmar que aparece “v3.11” abajo a la derecha.
-3. Pulsar Deportistas, Planificación e Historial.
+- El selector de Planificación se rellena directamente desde la lista activa.
+- Usa los deportistas locales como respaldo.
+- Se actualiza al abrir Planificación.
+- Se actualiza al tocar o enfocar el selector.
+- Se rellena aunque el módulo de planificación tenga un fallo parcial.
+- El selector queda habilitado explícitamente en móvil.
+- La versión visible debe indicar v3.12.

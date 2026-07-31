@@ -1,5 +1,5 @@
 
-const CACHE="bst-v311-hard-navigation";
+const CACHE="bst-v312-planning-selector";
 
 self.addEventListener("install",event=>{
   self.skipWaiting();
