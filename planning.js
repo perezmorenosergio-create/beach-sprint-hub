@@ -75,8 +75,50 @@ function saveJSON(key,value){localStorage.setItem(key,JSON.stringify(value))}
 function loadXLSX(){
   return new Promise((resolve,reject)=>{
     if(window.XLSX)return resolve(window.XLSX);
-    const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-    s.onload=()=>resolve(window.XLSX);s.onerror=()=>reject(new Error("No se pudo cargar el lector de Excel."));document.head.appendChild(s);
+
+    const sources=[
+      "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+    ];
+    let index=0;
+    let settled=false;
+
+    const timeout=window.setTimeout(()=>{
+      if(settled)return;
+      settled=true;
+      reject(new Error("El lector de Excel no ha podido cargarse. Comprueba la conexión a internet y vuelve a intentarlo."));
+    },12000);
+
+    const tryNext=()=>{
+      if(index>=sources.length){
+        if(settled)return;
+        settled=true;
+        clearTimeout(timeout);
+        reject(new Error("No se pudo cargar el lector de Excel desde ninguna fuente."));
+        return;
+      }
+
+      const script=document.createElement("script");
+      script.src=sources[index++];
+      script.async=true;
+      script.onload=()=>{
+        if(window.XLSX&&!settled){
+          settled=true;
+          clearTimeout(timeout);
+          resolve(window.XLSX);
+        }else{
+          script.remove();
+          tryNext();
+        }
+      };
+      script.onerror=()=>{
+        script.remove();
+        tryNext();
+      };
+      document.head.appendChild(script);
+    };
+
+    tryNext();
   });
 }
 function dayName(iso){
@@ -696,11 +738,42 @@ export function createPlanningModule(els){
     setMessage(`Plan cargado: ${plan.fileName}`);
   };
   async function importFile(file){
-    if(!file)return;els.input.disabled=true;setMessage("Leyendo planificación…");
-    try{await loadXLSX();const wb=window.XLSX.read(await file.arrayBuffer(),{type:"array",raw:true,cellDates:false});
-      plan=buildAnnualPlan(wb,file.name);selectedWeek=plan.summary[0]?.week;saveCurrentPlan();render();setMessage("Planificación importada correctamente.");
-    }catch(e){console.error(e);setMessage(e.message||"No se pudo importar.",true)}finally{els.input.value="";els.input.disabled=false}
+    if(!file){
+      setMessage("No se seleccionó ningún archivo.",true);
+      return;
+    }
+
+    els.input.disabled=true;
+    setMessage(`Archivo seleccionado: ${file.name}. Cargando lector Excel…`);
+
+    try{
+      await loadXLSX();
+      setMessage(`Lector cargado. Leyendo ${file.name}…`);
+
+      const buffer=await file.arrayBuffer();
+      if(!buffer.byteLength)throw new Error("El archivo está vacío.");
+
+      const wb=window.XLSX.read(buffer,{type:"array",raw:true,cellDates:false});
+      setMessage("Excel leído. Procesando Summary, Plan y Training…");
+
+      plan=buildAnnualPlan(wb,file.name);
+      selectedWeek=plan.summary[0]?.week;
+      saveCurrentPlan();
+      render();
+      setMessage(`Planificación importada: ${plan.summary.length} semanas y ${plan.sessions.length} registros.`);
+    }catch(error){
+      console.error("Planning import failed:",error);
+      setMessage(error?.message||"No se pudo importar la planificación.",true);
+    }finally{
+      els.input.value="";
+      els.input.disabled=false;
+    }
   }
+
+  window.BSTImportPlanning=function(input){
+    const file=input?.files?.[0]||input;
+    importFile(file);
+  };
 
   renderSubnav();
   els.athleteSelect.addEventListener("change",()=>{
@@ -712,7 +785,10 @@ export function createPlanningModule(els){
     loadCompletionFromCloud();
     loadWeekComments();
   });
-  els.input.addEventListener("change",e=>importFile(e.target.files[0]));
+  els.input.addEventListener("change",event=>{
+    const file=event.target.files?.[0];
+    importFile(file);
+  });
   els.weekSelector.addEventListener("change",()=>{
     selectedWeek=Number(els.weekSelector.value);
     renderWeeklySheet();

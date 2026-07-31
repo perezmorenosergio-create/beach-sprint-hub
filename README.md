@@ -1,7 +1,9 @@
-# Beach Sprint Hub v3.13 — Athlete Import Fix
+# Beach Sprint Hub v3.14 — Planning Import Fix
 
-- La selección del archivo muestra respuesta inmediata.
-- Importación enlazada tanto desde HTML como desde app.js.
-- Mensajes claros: archivo seleccionado, leyendo, importado, duplicados o error.
-- El campo se vuelve a habilitar siempre.
-- La versión visible debe indicar v3.13.
+- Conexión directa del input de planificación.
+- Mensajes visibles en cada fase de la importación.
+- Dos fuentes alternativas para cargar SheetJS.
+- Timeout de 12 segundos.
+- Validación de archivo vacío.
+- Resultado con número de semanas y registros importados.
+- La versión visible debe indicar v3.14.

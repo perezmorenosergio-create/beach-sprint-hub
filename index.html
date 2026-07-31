@@ -7,7 +7,7 @@
   <title>Beach Sprint Timer</title>
   <script>
     (function(){
-      window.BST_VERSION="3.13";
+      window.BST_VERSION="3.14";
 
       window.BSTShowView=function(viewId){
         var target=document.getElementById(viewId);
@@ -70,17 +70,17 @@
 
         var badge=document.createElement("span");
         badge.id="buildVersionBadge";
-        badge.textContent="v3.13";
+        badge.textContent="v3.14";
         document.body.appendChild(badge);
       });
     })();
   </script>
 
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=313">
+  <link rel="stylesheet" href="styles.css?v=314">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=313"></script>
+  <script type="module" src="app.js?v=314"></script>
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -232,7 +232,7 @@
             </label>
             <label class="primary-button file-button planning-upload">
               <span>Importar planificación Excel</span>
-              <input id="annualPlanFileInput" type="file" accept=".xlsx,.xls">
+              <input id="annualPlanFileInput" type="file" accept=".xlsx,.xls" onchange="window.BSTImportPlanning ? BSTImportPlanning(this) : (document.getElementById('planningImportMessage').textContent='Archivo seleccionado, pero el módulo de planificación no está iniciado.')">
             </label>
           </div>
         </div>

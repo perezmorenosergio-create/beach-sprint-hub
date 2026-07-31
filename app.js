@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.13 athlete import fix loaded");
+console.info("Beach Sprint Hub v3.14 planning import fix loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
