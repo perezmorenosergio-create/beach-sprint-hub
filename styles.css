@@ -427,3 +427,176 @@ input:focus,select:focus{outline:3px solid #93c5fd;border-color:var(--blue)}
 .dialog-actions{display:flex;justify-content:flex-end;gap:8px}
 @media(max-width:1000px){.annual-calendar-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.annual-calendar-grid{grid-template-columns:1fr}.week-total-grid{grid-template-columns:repeat(3,1fr)}.calendar-actions{align-items:stretch;flex-direction:column}}
+
+.planning-hero-actions{
+  display:flex;
+  align-items:flex-end;
+  gap:10px;
+}
+.planning-hero-actions>label:first-child{
+  min-width:230px;
+}
+.current-week-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+}
+.current-week-progress{
+  min-width:220px;
+}
+.current-week-progress span,
+.current-week-progress strong{
+  display:block;
+}
+.current-week-progress strong{
+  font-size:28px;
+  margin:3px 0 7px;
+}
+.progress-track{
+  width:100%;
+  height:10px;
+  border-radius:999px;
+  background:#e2e8f0;
+  overflow:hidden;
+}
+.progress-track div{
+  height:100%;
+  background:#16a34a;
+  border-radius:999px;
+  transition:width .2s ease;
+}
+.today-card-heading{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.today-card-heading h2{
+  margin:0;
+}
+.today-count{
+  border-radius:999px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  padding:7px 10px;
+  font-size:12px;
+  font-weight:900;
+}
+.today-session{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
+  border-top:1px solid #e2e8f0;
+  padding:14px 0;
+}
+.today-session strong,
+.today-session small{
+  display:block;
+}
+.today-session small{
+  color:#64748b;
+  margin-top:4px;
+}
+.current-week-days{
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:8px;
+  overflow:auto;
+}
+.current-day-card{
+  border:1px solid #cbd5e1;
+  border-radius:14px;
+  overflow:hidden;
+  min-width:170px;
+  background:#f8fafc;
+}
+.current-day-card.today{
+  border:2px solid #2563eb;
+}
+.current-day-card header{
+  display:flex;
+  justify-content:space-between;
+  padding:9px 10px;
+  background:#0f172a;
+  color:#fff;
+  text-transform:capitalize;
+}
+.current-day-card.today header{
+  background:#2563eb;
+}
+.current-day-body{
+  padding:8px;
+  display:grid;
+  gap:7px;
+}
+.week-session-check{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  padding:9px;
+  border-radius:10px;
+  background:#fff;
+  border:1px solid #e2e8f0;
+}
+.week-session-check input{
+  width:18px;
+  height:18px;
+  margin:1px 0 0;
+}
+.week-session-check strong,
+.week-session-check small{
+  display:block;
+}
+.week-session-check small{
+  margin-top:3px;
+  color:#64748b;
+}
+.week-session-check.completed{
+  background:#f0fdf4;
+  border-color:#86efac;
+}
+.week-session-check.completed strong{
+  text-decoration:line-through;
+  color:#64748b;
+}
+.current-week-bottom-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+.current-week-stats{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+}
+.current-week-stats article{
+  border-radius:13px;
+  background:#f1f5f9;
+  padding:13px;
+}
+.current-week-stats span,
+.current-week-stats strong{
+  display:block;
+}
+.current-week-stats span{
+  color:#64748b;
+  font-size:12px;
+}
+.current-week-stats strong{
+  margin-top:3px;
+  font-size:23px;
+}
+@media(max-width:900px){
+  .current-week-days{grid-template-columns:repeat(7,minmax(190px,1fr))}
+  .current-week-bottom-grid{grid-template-columns:1fr}
+}
+@media(max-width:650px){
+  .planning-hero-actions{align-items:stretch;flex-direction:column}
+  .planning-hero-actions>label:first-child{min-width:0}
+  .current-week-header{align-items:stretch;flex-direction:column}
+  .current-week-progress{min-width:0}
+  .today-session{align-items:flex-start;flex-direction:column}
+}

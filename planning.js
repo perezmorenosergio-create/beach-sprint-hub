@@ -1,6 +1,7 @@
 
-const PLAN_STORAGE_KEY="bst_trainer_annual_plan_v2";
+const PLANS_STORAGE_KEY="bst_trainer_athlete_plans_v1";
 const NOTES_STORAGE_KEY="bst_trainer_calendar_notes_v1";
+const COMPLETION_STORAGE_KEY="bst_training_completion_v1";
 
 const normalizeText=value=>String(value??"").replace(/\s+/g," ").trim();
 
@@ -75,10 +76,27 @@ function mondayOfWeek(year,week){
 function iso(d){return d.toISOString().slice(0,10)}
 
 export function createPlanningModule(els){
-  let plan=loadJSON(PLAN_STORAGE_KEY,null);
+  let plansByAthlete=loadJSON(PLANS_STORAGE_KEY,{});
   let notes=loadJSON(NOTES_STORAGE_KEY,[]);
+  let completion=loadJSON(COMPLETION_STORAGE_KEY,{});
+  let athleteId="general";
+  let userId="anonymous";
+  let plan=plansByAthlete[athleteId]||null;
   let selectedWeek=null;
   let libraryFilter="";
+
+  function planKey(){
+    return `${userId}:${athleteId}`;
+  }
+
+  function completionKey(date,training,index){
+    return `${planKey()}:${date}:${index}:${training}`;
+  }
+
+  function saveCurrentPlan(){
+    plansByAthlete[athleteId]=plan;
+    saveJSON(PLANS_STORAGE_KEY,plansByAthlete);
+  }
 
   const setMessage=(text,error=false)=>{
     els.message.textContent=text;
@@ -217,19 +235,206 @@ export function createPlanningModule(els){
     els.libraryTable.innerHTML=`<table><thead><tr><th>Sesión</th><th>RPE</th><th>Total</th><th>Z1</th><th>Z2</th><th>Z3</th><th>Z4</th><th>Z5</th><th>Z6</th><th>Fuerza</th><th>Otros</th></tr></thead>
       <tbody>${items.slice(0,300).map(x=>`<tr><td><strong>${x.name}</strong></td><td>${x.rpe||"—"}</td><td>${x.total||0}</td><td>${x.zones.z1||0}</td><td>${x.zones.z2||0}</td><td>${x.zones.z3||0}</td><td>${x.zones.z4||0}</td><td>${x.zones.z5||0}</td><td>${x.zones.z6||0}</td><td>${x.zones.weights||0}</td><td>${x.zones.other||0}</td></tr>`).join("")}</tbody></table>`;
   };
+
+  function findCurrentWeek(){
+    if(!plan?.summary?.length)return null;
+    const today=new Date();
+    today.setHours(12,0,0,0);
+
+    let exact=plan.summary.find(item=>{
+      if(!item.startDate||!item.endDate)return false;
+      const start=new Date(`${item.startDate}T00:00:00`);
+      const end=new Date(`${item.endDate}T23:59:59`);
+      return today>=start&&today<=end;
+    });
+
+    if(exact)return exact;
+
+    const future=plan.summary.find(item=>
+      item.startDate && new Date(`${item.startDate}T00:00:00`)>=today
+    );
+
+    return future||plan.summary[0];
+  }
+
+  function sessionsByDayForWeek(week){
+    const sessions=plan.sessions.filter(item=>item.week===week);
+    const byDate={};
+    let currentDate=null;
+
+    sessions.forEach(item=>{
+      if(item.date)currentDate=item.date;
+      const date=item.date||currentDate;
+      if(!date)return;
+      (byDate[date]??=[]).push(item);
+    });
+
+    return byDate;
+  }
+
+  function renderCurrentWeek(){
+    const summary=findCurrentWeek();
+    if(!summary)return;
+
+    const byDate=sessionsByDayForWeek(summary.week);
+    const year=Number(summary.startDate?.slice(0,4))||new Date().getFullYear();
+    const monday=mondayOfWeek(year,summary.week);
+    const todayISO=new Date().toISOString().slice(0,10);
+
+    els.currentWeekTitle.textContent=`Semana ${summary.week}`;
+    els.currentWeekMeta.innerHTML=[
+      `${formatDate(summary.startDate)} – ${formatDate(summary.endDate)}`,
+      summary.phase||"Sin fase",
+      `Macrociclo ${summary.macrocycle||"—"}`,
+      `${Math.round(summary.load*100)}% de carga`,
+      summary.event||""
+    ].filter(Boolean).map(value=>`<span>${value}</span>`).join("");
+
+    const days=[];
+    let totalSessions=0;
+    let completedSessions=0;
+
+    for(let dayIndex=0;dayIndex<7;dayIndex++){
+      const date=new Date(monday);
+      date.setUTCDate(monday.getUTCDate()+dayIndex);
+      const dateISO=iso(date);
+      const sessions=(byDate[dateISO]||[]).filter(item=>item.training);
+
+      sessions.forEach((item,index)=>{
+        totalSessions++;
+        if(completion[completionKey(dateISO,item.training,index)]){
+          completedSessions++;
+        }
+      });
+
+      days.push({date:dateISO,sessions});
+    }
+
+    const progress=totalSessions
+      ? Math.round((completedSessions/totalSessions)*100)
+      : 0;
+
+    els.currentWeekProgressText.textContent=`${progress}%`;
+    els.currentWeekProgressBar.style.width=`${progress}%`;
+
+    els.currentWeekDays.innerHTML=days.map(day=>`
+      <article class="current-day-card${day.date===todayISO?" today":""}">
+        <header>
+          <span>${new Intl.DateTimeFormat("es-ES",{weekday:"short"}).format(new Date(`${day.date}T12:00:00`))}</span>
+          <strong>${new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short"}).format(new Date(`${day.date}T12:00:00`))}</strong>
+        </header>
+        <div class="current-day-body">
+          ${day.sessions.length?day.sessions.map((item,index)=>{
+            const key=completionKey(day.date,item.training,index);
+            const checked=Boolean(completion[key]);
+            return `
+              <label class="week-session-check${checked?" completed":""}">
+                <input type="checkbox" data-completion-key="${key}" ${checked?"checked":""}>
+                <span>
+                  <strong>${item.training}</strong>
+                  <small>${item.time?`${item.time} min`:""}${item.rpe?` · RPE ${item.rpe}`:""}</small>
+                </span>
+              </label>`;
+          }).join(""):'<div class="weekly-rest">Descanso</div>'}
+        </div>
+      </article>
+    `).join("");
+
+    els.currentWeekDays.querySelectorAll("[data-completion-key]").forEach(input=>{
+      input.addEventListener("change",()=>{
+        completion[input.dataset.completionKey]=input.checked;
+        saveJSON(COMPLETION_STORAGE_KEY,completion);
+        renderCurrentWeek();
+      });
+    });
+
+    const today=days.find(day=>day.date===todayISO);
+    els.todayTrainingCard.innerHTML=`
+      <div class="today-card-heading">
+        <div>
+          <p class="eyebrow">HOY</p>
+          <h2>${today?dayName(today.date):"Fuera de la semana planificada"}</h2>
+        </div>
+        <span class="today-count">${today?.sessions.length||0} sesiones</span>
+      </div>
+      ${today?.sessions.length?today.sessions.map((item,index)=>`
+        <article class="today-session">
+          <div>
+            <strong>${item.training}</strong>
+            <small>${item.time?`${item.time} minutos`:""}${item.rpe?` · RPE ${item.rpe}`:""}</small>
+          </div>
+          <div class="session-zone-chips">
+            ${Object.entries(item.zones).filter(([,value])=>value).map(([zone,value])=>`<span>${zone.toUpperCase()} ${value}</span>`).join("")}
+          </div>
+        </article>`).join(""):'<div class="empty-state">Hoy no hay entrenamiento planificado.</div>'}
+    `;
+
+    const max=Math.max(...Object.values(summary.zones),1);
+    els.currentWeekZones.innerHTML=Object.entries(summary.zones).map(([zone,value])=>`
+      <div class="zone-summary-row">
+        <span>${zone.toUpperCase()}</span>
+        <div class="zone-summary-track"><div style="width:${Math.max(2,(value/max)*100)}%"></div></div>
+        <strong>${value} min</strong>
+      </div>
+    `).join("");
+
+    els.currentWeekStats.innerHTML=`
+      <article><span>Horas</span><strong>${summary.hours.toFixed(1)}</strong></article>
+      <article><span>Sesiones</span><strong>${totalSessions}</strong></article>
+      <article><span>Completadas</span><strong>${completedSessions}</strong></article>
+      <article><span>Carga</span><strong>${Math.round(summary.load*100)}%</strong></article>
+    `;
+
+    els.goToSelectedWeekButton.onclick=()=>{
+      selectedWeek=summary.week;
+      els.weekSelector.value=String(summary.week);
+      renderWeeklySheet();
+      document.querySelector('[data-planning-view="weeklyPlanningPanel"]').click();
+    };
+  }
+
+  function setAthletes(athletes,currentUserId){
+    userId=currentUserId||"anonymous";
+
+    const previousValue=els.athleteSelect.value||athleteId;
+    els.athleteSelect.innerHTML='<option value="general">Plan general</option>';
+
+    athletes.forEach(athlete=>{
+      const option=document.createElement("option");
+      option.value=athlete.id;
+      option.textContent=athlete.name;
+      els.athleteSelect.appendChild(option);
+    });
+
+    athleteId=[...els.athleteSelect.options].some(option=>option.value===previousValue)
+      ? previousValue
+      : "general";
+
+    els.athleteSelect.value=athleteId;
+    plan=plansByAthlete[athleteId]||null;
+    selectedWeek=plan?.summary?.[0]?.week||null;
+    render();
+  }
+
   const render=()=>{
     const has=!!plan;els.emptyState.classList.toggle("hidden",has);els.content.classList.toggle("hidden",!has);if(!has)return;
-    renderKpis();buildYears();renderCalendar();renderEvents();renderPhaseFilter();renderWeekSelector();renderWeeklySheet();renderAnnualSummary();renderLibrary();
+    renderKpis();buildYears();renderCalendar();renderEvents();renderPhaseFilter();renderWeekSelector();renderWeeklySheet();renderAnnualSummary();renderLibrary();renderCurrentWeek();
     setMessage(`Plan cargado: ${plan.fileName}`);
   };
   async function importFile(file){
     if(!file)return;els.input.disabled=true;setMessage("Leyendo planificación…");
     try{await loadXLSX();const wb=window.XLSX.read(await file.arrayBuffer(),{type:"array",raw:true,cellDates:false});
-      plan=buildAnnualPlan(wb,file.name);selectedWeek=plan.summary[0]?.week;saveJSON(PLAN_STORAGE_KEY,plan);render();setMessage("Planificación importada correctamente.");
+      plan=buildAnnualPlan(wb,file.name);selectedWeek=plan.summary[0]?.week;saveCurrentPlan();render();setMessage("Planificación importada correctamente.");
     }catch(e){console.error(e);setMessage(e.message||"No se pudo importar.",true)}finally{els.input.value="";els.input.disabled=false}
   }
 
   renderSubnav();
+  els.athleteSelect.addEventListener("change",()=>{
+    athleteId=els.athleteSelect.value;
+    plan=plansByAthlete[athleteId]||null;
+    selectedWeek=plan?.summary?.[0]?.week||null;
+    render();
+  });
   els.input.addEventListener("change",e=>importFile(e.target.files[0]));
   els.weekSelector.addEventListener("change",()=>{selectedWeek=Number(els.weekSelector.value);renderWeeklySheet()});
   els.phaseFilter.addEventListener("change",renderAnnualSummary);
@@ -246,4 +451,5 @@ export function createPlanningModule(els){
     saveJSON(NOTES_STORAGE_KEY,notes);els.calendarNoteForm.reset();els.calendarNoteDialog.close();buildYears();renderCalendar();renderEvents();renderKpis();
   });
   render();
+  return{setAthletes};
 }

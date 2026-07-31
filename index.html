@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#0f172a">
   <title>Beach Sprint Timer</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=31">
+  <link rel="stylesheet" href="styles.css?v=32">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=31"></script>
+  <script type="module" src="app.js?v=32"></script>
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -152,10 +152,18 @@
             <p class="muted">Calendario anual, semanas de trabajo y biblioteca de sesiones.</p>
           </div>
 
-          <label class="primary-button file-button planning-upload">
-            <span>Importar planificación Excel</span>
-            <input id="annualPlanFileInput" type="file" accept=".xlsx,.xls">
-          </label>
+          <div class="planning-hero-actions">
+            <label>
+              <span>Deportista</span>
+              <select id="planningAthleteSelect">
+                <option value="general">Plan general</option>
+              </select>
+            </label>
+            <label class="primary-button file-button planning-upload">
+              <span>Importar planificación Excel</span>
+              <input id="annualPlanFileInput" type="file" accept=".xlsx,.xls">
+            </label>
+          </div>
         </div>
 
         <div id="planningImportMessage" class="planning-message"></div>
@@ -174,12 +182,54 @@
           </div>
 
           <div class="planning-subnav">
-            <button class="planning-subtab active" data-planning-view="annualCalendarPanel" type="button">Calendario anual</button>
-            <button class="planning-subtab" data-planning-view="weeklyPlanningPanel" type="button">Semanas</button>
+            <button class="planning-subtab active" data-planning-view="currentWeekPanel" type="button">Esta semana</button>
+            <button class="planning-subtab" data-planning-view="annualCalendarPanel" type="button">Calendario anual</button>
+            <button class="planning-subtab" data-planning-view="weeklyPlanningPanel" type="button">Todas las semanas</button>
             <button class="planning-subtab" data-planning-view="trainingLibraryPanel" type="button">Biblioteca de sesiones</button>
           </div>
 
-          <section id="annualCalendarPanel" class="planning-panel active">
+          <section id="currentWeekPanel" class="planning-panel active">
+            <div class="current-week-header panel">
+              <div>
+                <p class="eyebrow">SEMANA ACTUAL</p>
+                <h2 id="currentWeekTitle">Esta semana</h2>
+                <div id="currentWeekMeta" class="week-meta"></div>
+              </div>
+              <div class="current-week-progress">
+                <span>Completado</span>
+                <strong id="currentWeekProgressText">0%</strong>
+                <div class="progress-track"><div id="currentWeekProgressBar"></div></div>
+              </div>
+            </div>
+
+            <div id="todayTrainingCard" class="panel today-training-card"></div>
+
+            <div class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">PLAN SEMANAL</p>
+                  <h2>Qué toca cada día</h2>
+                </div>
+                <button id="goToSelectedWeekButton" class="outline-button" type="button">Abrir semana completa</button>
+              </div>
+              <div id="currentWeekDays" class="current-week-days"></div>
+            </div>
+
+            <div class="current-week-bottom-grid">
+              <div class="panel">
+                <p class="eyebrow">CARGA SEMANAL</p>
+                <h2>Distribución por zonas</h2>
+                <div id="currentWeekZones" class="week-zone-summary"></div>
+              </div>
+              <div class="panel">
+                <p class="eyebrow">RESUMEN</p>
+                <h2>Semana en números</h2>
+                <div id="currentWeekStats" class="current-week-stats"></div>
+              </div>
+            </div>
+          </section>
+
+          <section id="annualCalendarPanel" class="planning-panel">
             <div class="panel">
               <div class="panel-heading">
                 <div>

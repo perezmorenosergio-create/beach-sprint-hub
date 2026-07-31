@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.1 planning redesign loaded");
+console.info("Beach Sprint Hub v3.2 athlete weekly planning loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -32,6 +32,7 @@ function withTimeout(promise,milliseconds,message){
 
 let authMode="login",currentUser=null,athletes=[],selectedIds=new Set(),sessions=[];
 let session=null,actions=[],ticker=null,lastTap=new Map(),saving=false;
+let planningModule=null;
 
 const LOCAL_ATHLETES_KEY="bst_local_athletes_v1";
 
@@ -314,7 +315,12 @@ function renderHistory(){
   sessions.forEach(s=>{const row=document.createElement("div");row.className="management-row";row.innerHTML='<div><div class="management-name"></div><div class="management-meta"></div></div>';
     row.querySelector(".management-name").textContent=s.name;row.querySelector(".management-meta").textContent=`${new Date(s.session_date).toLocaleString()} · ${s.session_type.toUpperCase()} · ${s.lap_count} laps`;box.append(row)});
 }
-function renderAll(){renderSessionAthletes();renderAthletes();renderHistory()}
+function renderAll(){
+  renderSessionAthletes();
+  renderAthletes();
+  renderHistory();
+  planningModule?.setAthletes(athletes,currentUser?.id);
+}
 
 loadLoginPreferences();
 $("togglePasswordButton").addEventListener("click",togglePasswordVisibility);
@@ -325,11 +331,21 @@ $("rememberAccessInput").addEventListener("change",()=>{
 });
 
 
-createPlanningModule({
+planningModule=createPlanningModule({
   input:$("annualPlanFileInput"),
   message:$("planningImportMessage"),
   emptyState:$("planningEmptyState"),
   content:$("planningContent"),
+  athleteSelect:$("planningAthleteSelect"),
+  currentWeekTitle:$("currentWeekTitle"),
+  currentWeekMeta:$("currentWeekMeta"),
+  currentWeekProgressText:$("currentWeekProgressText"),
+  currentWeekProgressBar:$("currentWeekProgressBar"),
+  todayTrainingCard:$("todayTrainingCard"),
+  currentWeekDays:$("currentWeekDays"),
+  currentWeekZones:$("currentWeekZones"),
+  currentWeekStats:$("currentWeekStats"),
+  goToSelectedWeekButton:$("goToSelectedWeekButton"),
   weeksKpi:$("planningWeeksKpi"),
   hoursKpi:$("planningHoursKpi"),
   sessionsKpi:$("planningSessionsKpi"),
