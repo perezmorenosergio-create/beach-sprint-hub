@@ -388,3 +388,42 @@ input:focus,select:focus{outline:3px solid #93c5fd;border-color:var(--blue)}
     max-width:none;
   }
 }
+
+.planning-subnav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.planning-subtab{border:1px solid #cbd5e1;background:#fff;border-radius:12px;padding:12px 16px;font-weight:900}
+.planning-subtab.active{background:#0f172a;color:#fff;border-color:#0f172a}
+.planning-panel{display:none}.planning-panel.active{display:block}
+.calendar-actions{display:flex;gap:8px;align-items:center}
+.annual-calendar-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.year-month{border:1px solid #cbd5e1;border-radius:16px;padding:12px;background:#fff}
+.year-month h3{margin:0 0 9px;text-transform:capitalize}
+.month-weekdays,.month-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.month-weekdays span{text-align:center;font-size:11px;color:#64748b;font-weight:900}
+.calendar-day{min-height:35px;border:0;border-radius:8px;background:#f8fafc;position:relative;font-size:12px}
+.calendar-day:hover{background:#e2e8f0}.calendar-day span{position:absolute;top:4px;left:5px}
+.calendar-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin:19px 1px 0}
+.calendar-dot.plan,.event-type.plan{background:#2563eb}.calendar-dot.regatta,.event-type.regatta{background:#dc2626}
+.calendar-dot.test,.event-type.test{background:#d97706}.calendar-dot.camp,.event-type.camp{background:#16a34a}
+.calendar-dot.travel,.event-type.travel{background:#7c3aed}.calendar-dot.note,.event-type.note{background:#64748b}
+.annual-events-list{display:grid;gap:8px}.annual-event-item{display:flex;justify-content:space-between;align-items:center;border:1px solid #e2e8f0;border-radius:12px;padding:11px}
+.annual-event-item strong,.annual-event-item small{display:block}.annual-event-item small{color:#64748b;margin-top:3px}
+.event-type{display:inline-block;color:#fff;border-radius:999px;padding:3px 7px;margin-right:8px;font-size:10px;text-transform:uppercase}
+.delete-note{border:0;background:#fee2e2;color:#b91c1c;border-radius:9px;width:34px;height:34px;font-size:20px}
+.weekly-sheet{overflow:auto}.weekly-sheet-grid{display:grid;grid-template-columns:repeat(7,minmax(210px,1fr));gap:8px;min-width:1500px}
+.weekly-day-column{border:1px solid #cbd5e1;border-radius:14px;overflow:hidden;background:#f8fafc}
+.weekly-day-column header{padding:10px;background:#0f172a;color:#fff;font-weight:900;text-transform:capitalize}
+.weekly-day-sessions{display:grid;gap:8px;padding:8px}.weekly-session-card{background:#fff;border-radius:11px;padding:10px;border:1px solid #e2e8f0}
+.session-order{float:right;width:23px;height:23px;border-radius:50%;display:grid;place-items:center;background:#2563eb;color:#fff;font-size:11px;font-weight:900}
+.weekly-session-card strong,.weekly-session-card small{display:block}.weekly-session-card small{margin-top:4px;color:#64748b}
+.session-zone-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}.session-zone-chips span{font-size:10px;background:#e2e8f0;border-radius:999px;padding:4px 6px}
+.weekly-rest{color:#94a3b8;text-align:center;padding:22px 8px;font-style:italic}
+.week-total-grid{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px;margin-top:14px}.week-total-grid article{background:#e2e8f0;border-radius:12px;padding:10px;text-align:center}
+.week-total-grid span,.week-total-grid small{display:block}.week-total-grid strong{font-size:22px}.week-total-grid .total-hours{background:#0f172a;color:#fff}
+.annual-weeks-summary{overflow:auto}.annual-weeks-summary table{min-width:900px}
+.library-folder-grid{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.library-folder{border:1px solid #cbd5e1;border-radius:999px;padding:8px 12px;background:#fff;font-weight:850}
+.library-folder.active{background:#2563eb;color:#fff;border-color:#2563eb}
+.calendar-note-dialog{border:0;border-radius:18px;padding:0;width:min(460px,92vw)}.calendar-note-dialog::backdrop{background:rgba(15,23,42,.55)}
+.calendar-note-dialog form{padding:20px;display:grid;gap:12px}.calendar-note-dialog h3{margin:0}.calendar-note-dialog textarea{width:100%;border:1px solid #cbd5e1;border-radius:12px;padding:12px}
+.dialog-actions{display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:1000px){.annual-calendar-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.annual-calendar-grid{grid-template-columns:1fr}.week-total-grid{grid-template-columns:repeat(3,1fr)}.calendar-actions{align-items:stretch;flex-direction:column}}

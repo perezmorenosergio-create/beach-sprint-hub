@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.0 trainer planning loaded");
+console.info("Beach Sprint Hub v3.1 planning redesign loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -32,6 +32,40 @@ function withTimeout(promise,milliseconds,message){
 
 let authMode="login",currentUser=null,athletes=[],selectedIds=new Set(),sessions=[];
 let session=null,actions=[],ticker=null,lastTap=new Map(),saving=false;
+
+const LOCAL_ATHLETES_KEY="bst_local_athletes_v1";
+
+function loadLocalAthletes(){
+  try{return JSON.parse(localStorage.getItem(LOCAL_ATHLETES_KEY))||[]}catch{return[]}
+}
+function saveLocalAthletes(){
+  localStorage.setItem(LOCAL_ATHLETES_KEY,JSON.stringify(athletes));
+}
+function localAthleteId(){
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+}
+async function syncAthleteInBackground(athlete){
+  try{
+    const payload={
+      user_id:currentUser.id,
+      name:athlete.name,
+      club:athlete.club||null,
+      category:athlete.category||null,
+      bib:athlete.bib||null
+    };
+    const {data,error}=await client.from("athletes").insert(payload).select().single();
+    if(error)throw error;
+    const index=athletes.findIndex(x=>x.id===athlete.id);
+    if(index>=0){
+      const wasSelected=selectedIds.has(athlete.id);
+      athletes[index]=data;
+      if(wasSelected){selectedIds.delete(athlete.id);selectedIds.add(data.id)}
+      saveLocalAthletes();renderAll();
+    }
+  }catch(error){
+    console.warn("Athlete remains local; cloud sync failed:",error);
+  }
+}
 
 const REMEMBER_EMAIL_KEY="bst_remember_email";
 const REMEMBER_ACCESS_KEY="bst_remember_access";
@@ -117,9 +151,20 @@ function leaveApp(){
   $("appShell").classList.add("hidden");$("authScreen").classList.remove("hidden");
 }
 async function loadAthletes(){
-  const {data,error}=await client.from("athletes").select("*").order("name");
-  if(error){setSync(`Error: ${error.message}`,"error");return}
-  athletes=data||[];selectedIds=new Set(athletes.slice(0,4).map(a=>a.id));
+  const local=loadLocalAthletes();
+  athletes=local;
+  try{
+    const {data,error}=await client.from("athletes").select("*").order("name");
+    if(!error&&data){
+      const cloudNames=new Set(data.map(x=>x.name.toLowerCase()));
+      const unsynced=local.filter(x=>String(x.id).startsWith("local-")&&!cloudNames.has(x.name.toLowerCase()));
+      athletes=[...data,...unsynced].sort((a,b)=>a.name.localeCompare(b.name,"es"));
+      saveLocalAthletes();
+    }
+  }catch(error){
+    console.warn("Using local athletes:",error);
+  }
+  selectedIds=new Set(athletes.slice(0,4).map(a=>a.id));
 }
 async function loadSessions(){
   const {data,error}=await client.from("sessions").select("*").order("session_date",{ascending:false}).limit(100);
@@ -155,129 +200,52 @@ function renderAthletes(){
   });
 }
 async function addAthlete(event){
-  event.preventDefault();const name=normalize($("athleteName").value);if(!name)return;
-  if(athletes.some(a=>a.name.toLowerCase()===name.toLowerCase())){setImport("Ese deportista ya existe.",true);return}
-  setSync("☁️ Guardando…","loading");
-  const payload={user_id:currentUser.id,name,club:normalize($("athleteClub").value)||null,category:normalize($("athleteCategory").value)||null,bib:normalize($("athleteBib").value)||null};
-  const {data,error}=await client.from("athletes").insert(payload).select().single();
-  if(error){setImport(error.message,true);setSync("Error","error");return}
-  athletes.push(data);athletes.sort((a,b)=>a.name.localeCompare(b.name));selectedIds.add(data.id);event.target.reset();renderAll();setImport(`${name} añadido.`);setSync("☁️ Sincronizado","ok");
+  event.preventDefault();
+  const name=normalize($("athleteName").value);
+  if(!name)return;
+  if(athletes.some(a=>a.name.toLowerCase()===name.toLowerCase())){
+    setImport("Ese deportista ya existe.",true);return;
+  }
+  const athlete={
+    id:localAthleteId(),
+    name,
+    club:normalize($("athleteClub").value)||"",
+    category:normalize($("athleteCategory").value)||"",
+    bib:normalize($("athleteBib").value)||"",
+    sync_status:"pending"
+  };
+  athletes.push(athlete);
+  athletes.sort((a,b)=>a.name.localeCompare(b.name,"es"));
+  selectedIds.add(athlete.id);
+  saveLocalAthletes();
+  event.target.reset();
+  renderAll();
+  setImport(`${name} añadido. Sincronizando en segundo plano…`);
+  setSync("Guardado en el dispositivo","ok");
+  syncAthleteInBackground(athlete);
 }
 function setImport(text,error=false){$("importMessage").textContent=text;$("importMessage").style.color=error?"#b91c1c":"#166534"}
-async function insertAthleteBatch(rows){
-  const response=await withTimeout(
-    client
-      .from("athletes")
-      .insert(rows),
-    15000,
-    "Supabase está tardando demasiado en guardar el lote."
-  );
-
-  if(response.error)throw response.error;
-}
-
 async function handleImport(file){
   if(!file)return;
-
-  const input=$("athleteFileInput");
-  input.disabled=true;
-
-  setImport("Leyendo archivo…");
-  setSync("☁️ Preparando importación…","loading");
-
+  const input=$("athleteFileInput");input.disabled=true;
+  setImport("Leyendo archivo…");setSync("Procesando…","loading");
   try{
     const imported=await importAthleteFile(file);
-
-    setImport(`${imported.length} nombres encontrados. Comprobando duplicados…`);
-
-    const existingNames=new Set(
-      athletes.map(athlete=>athlete.name.toLowerCase())
-    );
-
-    const seenInFile=new Set();
-    const pending=[];
-
-    for(const athlete of imported){
-      const normalizedName=athlete.name.toLowerCase();
-
-      if(
-        existingNames.has(normalizedName) ||
-        seenInFile.has(normalizedName)
-      ){
-        continue;
-      }
-
-      seenInFile.add(normalizedName);
-
-      pending.push({
-        user_id:currentUser.id,
-        name:athlete.name,
-        club:athlete.club||null,
-        category:athlete.category||null,
-        bib:athlete.bib||null
-      });
+    const names=new Set(athletes.map(x=>x.name.toLowerCase()));
+    const added=[];
+    for(const row of imported){
+      const key=row.name.toLowerCase();
+      if(names.has(key))continue;
+      names.add(key);
+      const athlete={id:localAthleteId(),name:row.name,club:row.club||"",category:row.category||"",bib:row.bib||"",sync_status:"pending"};
+      athletes.push(athlete);selectedIds.add(athlete.id);added.push(athlete);
     }
-
-    if(!pending.length){
-      setImport("No hay deportistas nuevos: todos ya existen.");
-      setSync("☁️ Sincronizado","ok");
-      return;
-    }
-
-    setImport(`Guardando ${pending.length} deportistas en bloque…`);
-    setSync(
-      `☁️ Guardando ${pending.length} deportistas…`,
-      "loading"
-    );
-
-    try{
-      await insertAthleteBatch(pending);
-    }catch(batchError){
-      console.warn(
-        "El guardado en bloque falló. Se intentará por grupos:",
-        batchError
-      );
-
-      const chunkSize=25;
-
-      for(let start=0;start<pending.length;start+=chunkSize){
-        const chunk=pending.slice(start,start+chunkSize);
-        const completed=Math.min(start+chunk.length,pending.length);
-
-        setImport(
-          `Guardando ${completed}/${pending.length} deportistas…`
-        );
-
-        await insertAthleteBatch(chunk);
-      }
-    }
-
-    setImport("Actualizando la lista…");
-
-    await loadAthletes();
-    renderAll();
-
-    const skipped=imported.length-pending.length;
-    const skippedText=skipped
-      ? ` ${skipped} duplicados omitidos.`
-      : "";
-
-    setImport(
-      `${pending.length} deportistas importados correctamente.${skippedText}`
-    );
-    setSync("☁️ Sincronizado","ok");
-  }catch(error){
-    console.error("Athlete import failed:",error);
-
-    setImport(
-      error?.message||"No se pudo importar el archivo.",
-      true
-    );
-    setSync("Error de importación","error");
-  }finally{
-    input.value="";
-    input.disabled=false;
-  }
+    athletes.sort((a,b)=>a.name.localeCompare(b.name,"es"));saveLocalAthletes();renderAll();
+    setImport(`${added.length} deportistas importados al instante. Sincronizando en segundo plano…`);
+    setSync("Guardado en el dispositivo","ok");
+    added.forEach((athlete,index)=>setTimeout(()=>syncAthleteInBackground(athlete),index*250));
+  }catch(error){setImport(error.message||"No se pudo importar.",true);setSync("Error","error")}
+  finally{input.value="";input.disabled=false}
 }
 function prepareTimer(){
   const chosen=athletes.filter(a=>selectedIds.has(a.id));if(!chosen.length){alert("Selecciona al menos un deportista.");return}
@@ -366,13 +334,24 @@ createPlanningModule({
   hoursKpi:$("planningHoursKpi"),
   sessionsKpi:$("planningSessionsKpi"),
   eventsKpi:$("planningEventsKpi"),
-  weeksGrid:$("annualWeeksGrid"),
+  annualCalendarGrid:$("annualCalendarGrid"),
+  annualCalendarYear:$("annualCalendarYear"),
+  annualEventsList:$("annualEventsList"),
+  addCalendarNoteButton:$("addCalendarNoteButton"),
+  calendarNoteDialog:$("calendarNoteDialog"),
+  calendarNoteForm:$("calendarNoteForm"),
+  calendarNoteDate:$("calendarNoteDate"),
+  calendarNoteType:$("calendarNoteType"),
+  calendarNoteTitle:$("calendarNoteTitle"),
+  calendarNoteText:$("calendarNoteText"),
+  cancelCalendarNote:$("cancelCalendarNote"),
   weekSelector:$("weekSelector"),
   selectedWeekTitle:$("selectedWeekTitle"),
   selectedWeekMeta:$("selectedWeekMeta"),
-  selectedWeekSessions:$("selectedWeekSessions"),
+  weeklySheet:$("weeklySheet"),
   selectedWeekTotals:$("selectedWeekTotals"),
   phaseFilter:$("planningPhaseFilter"),
+  annualWeeksSummary:$("annualWeeksSummary"),
   librarySearch:$("trainingLibrarySearch"),
   libraryTable:$("trainingLibraryTable")
 });

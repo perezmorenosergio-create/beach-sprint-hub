@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#0f172a">
   <title>Beach Sprint Timer</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=30">
+  <link rel="stylesheet" href="styles.css?v=31">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=30"></script>
+  <script type="module" src="app.js?v=31"></script>
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -143,18 +143,17 @@
       </section>
 
 
+      
       <section id="planningView" class="view">
         <div class="planning-hero panel">
           <div>
             <p class="eyebrow">PERFIL ENTRENADOR</p>
-            <h2>Planificación anual</h2>
-            <p class="muted">
-              Importa el Excel anual y consulta calendario, cargas, semanas y biblioteca de sesiones.
-            </p>
+            <h2>Planificación</h2>
+            <p class="muted">Calendario anual, semanas de trabajo y biblioteca de sesiones.</p>
           </div>
 
           <label class="primary-button file-button planning-upload">
-            <span>Importar plan anual Excel</span>
+            <span>Importar planificación Excel</span>
             <input id="annualPlanFileInput" type="file" accept=".xlsx,.xls">
           </label>
         </div>
@@ -163,73 +162,126 @@
 
         <div id="planningEmptyState" class="panel empty-state planning-empty">
           <strong>Todavía no hay una planificación anual importada.</strong>
-          <span>Utiliza el Excel de Teresa para crear el primer perfil de planificación.</span>
+          <span>Importa el Excel anual para crear el primer plan.</span>
         </div>
 
         <div id="planningContent" class="hidden">
           <div class="planning-kpis">
-            <article class="planning-kpi">
-              <span>Semanas</span>
-              <strong id="planningWeeksKpi">—</strong>
-            </article>
-            <article class="planning-kpi">
-              <span>Horas planificadas</span>
-              <strong id="planningHoursKpi">—</strong>
-            </article>
-            <article class="planning-kpi">
-              <span>Sesiones</span>
-              <strong id="planningSessionsKpi">—</strong>
-            </article>
-            <article class="planning-kpi">
-              <span>Competiciones / tests</span>
-              <strong id="planningEventsKpi">—</strong>
-            </article>
+            <article class="planning-kpi"><span>Semanas</span><strong id="planningWeeksKpi">—</strong></article>
+            <article class="planning-kpi"><span>Horas</span><strong id="planningHoursKpi">—</strong></article>
+            <article class="planning-kpi"><span>Sesiones</span><strong id="planningSessionsKpi">—</strong></article>
+            <article class="planning-kpi"><span>Eventos</span><strong id="planningEventsKpi">—</strong></article>
           </div>
 
-          <div class="planning-grid">
-            <section class="panel planning-calendar-panel">
+          <div class="planning-subnav">
+            <button class="planning-subtab active" data-planning-view="annualCalendarPanel" type="button">Calendario anual</button>
+            <button class="planning-subtab" data-planning-view="weeklyPlanningPanel" type="button">Semanas</button>
+            <button class="planning-subtab" data-planning-view="trainingLibraryPanel" type="button">Biblioteca de sesiones</button>
+          </div>
+
+          <section id="annualCalendarPanel" class="planning-panel active">
+            <div class="panel">
               <div class="panel-heading">
                 <div>
                   <p class="eyebrow">VISIÓN ANUAL</p>
-                  <h2>Calendario de cargas</h2>
+                  <h2>Calendario</h2>
                 </div>
-                <select id="planningPhaseFilter">
-                  <option value="">Todas las fases</option>
-                </select>
+                <div class="calendar-actions">
+                  <select id="annualCalendarYear"></select>
+                  <button id="addCalendarNoteButton" class="outline-button" type="button">+ Añadir anotación</button>
+                </div>
               </div>
-              <div id="annualWeeksGrid" class="annual-weeks-grid"></div>
-            </section>
+              <div id="annualCalendarGrid" class="annual-calendar-grid"></div>
+            </div>
 
-            <section class="panel planning-week-panel">
+            <div class="panel">
               <div class="panel-heading">
                 <div>
-                  <p class="eyebrow">DETALLE SEMANAL</p>
+                  <p class="eyebrow">AGENDA</p>
+                  <h2>Regatas, tests y anotaciones</h2>
+                </div>
+              </div>
+              <div id="annualEventsList" class="annual-events-list"></div>
+            </div>
+          </section>
+
+          <section id="weeklyPlanningPanel" class="planning-panel">
+            <div class="panel weekly-sheet-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">PLANIFICACIÓN SEMANAL</p>
                   <h2 id="selectedWeekTitle">Selecciona una semana</h2>
                 </div>
                 <select id="weekSelector"></select>
               </div>
 
               <div id="selectedWeekMeta" class="week-meta"></div>
-              <div id="selectedWeekSessions" class="week-days"></div>
-              <div id="selectedWeekTotals" class="week-zone-summary"></div>
-            </section>
-          </div>
-
-          <section class="panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">BIBLIOTECA</p>
-                <h2>Tipos de sesión</h2>
-              </div>
-              <input id="trainingLibrarySearch" class="library-search" placeholder="Buscar sesión…">
+              <div id="weeklySheet" class="weekly-sheet"></div>
+              <div id="selectedWeekTotals" class="week-total-grid"></div>
             </div>
 
-            <div id="trainingLibraryTable" class="table-scroll"></div>
+            <div class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">RESUMEN ANUAL</p>
+                  <h2>Resumen de todo lo planificado</h2>
+                </div>
+                <select id="planningPhaseFilter">
+                  <option value="">Todas las fases</option>
+                </select>
+              </div>
+              <div id="annualWeeksSummary" class="annual-weeks-summary"></div>
+            </div>
+          </section>
+
+          <section id="trainingLibraryPanel" class="planning-panel">
+            <div class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">BIBLIOTECA</p>
+                  <h2>Tipos de entrenamiento</h2>
+                </div>
+                <input id="trainingLibrarySearch" class="library-search" placeholder="Buscar sesión…">
+              </div>
+
+              <div class="library-folder-grid">
+                <button class="library-folder active" data-library-filter="" type="button">Todas</button>
+                <button class="library-folder" data-library-filter="z1" type="button">Z1–Z2</button>
+                <button class="library-folder" data-library-filter="z3" type="button">Umbral</button>
+                <button class="library-folder" data-library-filter="z5" type="button">Alta intensidad</button>
+                <button class="library-folder" data-library-filter="weights" type="button">Fuerza</button>
+                <button class="library-folder" data-library-filter="other" type="button">Otros</button>
+              </div>
+
+              <div id="trainingLibraryTable" class="table-scroll"></div>
+            </div>
           </section>
         </div>
+
+        <dialog id="calendarNoteDialog" class="calendar-note-dialog">
+          <form method="dialog" id="calendarNoteForm">
+            <h3>Nueva anotación</h3>
+            <label><span>Fecha</span><input id="calendarNoteDate" type="date" required></label>
+            <label><span>Tipo</span>
+              <select id="calendarNoteType">
+                <option value="regatta">Regata</option>
+                <option value="test">Test</option>
+                <option value="camp">Concentración</option>
+                <option value="travel">Viaje</option>
+                <option value="note">Anotación</option>
+              </select>
+            </label>
+            <label><span>Título</span><input id="calendarNoteTitle" required placeholder="Ej. Campeonato de Europa"></label>
+            <label><span>Notas</span><textarea id="calendarNoteText" rows="4"></textarea></label>
+            <div class="dialog-actions">
+              <button value="cancel" class="outline-button" type="button" id="cancelCalendarNote">Cancelar</button>
+              <button class="primary-button" type="submit">Guardar</button>
+            </div>
+          </form>
+        </dialog>
       </section>
 
-      <section id="historyView" class="view">
+<section id="historyView" class="view">
         <div class="panel"><h2>Historial de sesiones</h2><div id="historyList" class="management-list"></div></div>
       </section>
     </main>
