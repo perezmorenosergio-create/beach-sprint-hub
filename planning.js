@@ -134,6 +134,22 @@ function mondayOfWeek(year,week){
 function iso(d){return d.toISOString().slice(0,10)}
 
 export function createPlanningModule(els){
+  const required=["input","message","emptyState","content","athleteSelect"];
+  const missing=required.filter(key=>!els[key]);
+  if(missing.length)throw new Error(`Faltan elementos de planificación: ${missing.join(", ")}`);
+
+  const safeOn=(element,event,handler,options)=>{
+    if(element?.addEventListener)element.addEventListener(event,handler,options);
+  };
+
+  // Available from the first instruction of module construction.
+  window.BSTImportPlanning=function(input){
+    const file=input?.files?.[0]||input;
+    if(typeof window.BSTPlanningImportFile==="function")return window.BSTPlanningImportFile(file);
+    els.message.textContent="El módulo está terminando de iniciarse. Vuelve a seleccionar el archivo.";
+    els.message.className="planning-message error";
+  };
+
   const supabase=els.supabase;
   let plansByAthlete=loadJSON(PLANS_STORAGE_KEY,{});
   let notes=loadJSON(NOTES_STORAGE_KEY,[]);
@@ -256,7 +272,7 @@ export function createPlanningModule(els){
         const cell=document.createElement("button");cell.type="button";cell.className="calendar-day";cell.innerHTML=`<span>${day}</span>`;
         const events=planEventsForDate(date);
         events.forEach(ev=>{const dot=document.createElement("i");dot.className=`calendar-dot ${ev.type}`;dot.title=ev.title;cell.append(dot)});
-        cell.addEventListener("click",()=>{els.calendarNoteDate.value=date;els.calendarNoteDialog.showModal()});
+        cell.addEventListener("click",()=>{els.calendarNoteDate.value=date;els.calendarNoteDialog?.showModal?.()});
         grid.append(cell);
       }
       monthBox.append(grid);els.annualCalendarGrid.append(monthBox);
@@ -810,13 +826,14 @@ export function createPlanningModule(els){
     }
   }
 
+  window.BSTPlanningImportFile=importFile;
   window.BSTImportPlanning=function(input){
     const file=input?.files?.[0]||input;
-    importFile(file);
+    return importFile(file);
   };
 
   renderSubnav();
-  els.athleteSelect.addEventListener("change",()=>{
+  safeOn(els.athleteSelect,"change",()=>{
     athleteId=els.athleteSelect.value;
     plan=plansByAthlete[athleteId]||null;
     selectedWeek=findCurrentWeek()?.week||plan?.summary?.[0]?.week||null;
@@ -825,42 +842,42 @@ export function createPlanningModule(els){
     loadCompletionFromCloud();
     loadWeekComments();
   });
-  els.input.addEventListener("change",event=>{
+  safeOn(els.input,"change",event=>{
     const file=event.target.files?.[0];
     importFile(file);
   });
-  els.weekSelector.addEventListener("change",()=>{
+  safeOn(els.weekSelector,"change",()=>{
     selectedWeek=Number(els.weekSelector.value);
     renderWeeklySheet();
     renderSeasonTimeline();
     renderWeekComments();
     scrollTimelineWeekIntoView(selectedWeek,true);
   });
-  els.phaseFilter.addEventListener("change",renderAnnualSummary);
-  els.annualCalendarYear.addEventListener("change",renderCalendar);
-  els.timelinePrevButton.addEventListener("click",()=>{
+  safeOn(els.phaseFilter,"change",renderAnnualSummary);
+  safeOn(els.annualCalendarYear,"change",renderCalendar);
+  safeOn(els.timelinePrevButton,"click",()=>{
     els.seasonTimeline.scrollBy({left:-Math.max(320,els.seasonTimeline.clientWidth*.75),behavior:"smooth"});
   });
-  els.timelineNextButton.addEventListener("click",()=>{
+  safeOn(els.timelineNextButton,"click",()=>{
     els.seasonTimeline.scrollBy({left:Math.max(320,els.seasonTimeline.clientWidth*.75),behavior:"smooth"});
   });
-  els.librarySearch.addEventListener("input",renderLibrary);
+  safeOn(els.librarySearch,"input",renderLibrary);
   document.querySelectorAll(".library-folder").forEach(btn=>btn.addEventListener("click",()=>{
     document.querySelectorAll(".library-folder").forEach(x=>x.classList.toggle("active",x===btn));libraryFilter=btn.dataset.libraryFilter;renderLibrary();
   }));
-  els.addCalendarNoteButton.addEventListener("click",()=>{els.calendarNoteDate.value=new Date().toISOString().slice(0,10);els.calendarNoteDialog.showModal()});
-  els.cancelCalendarNote.addEventListener("click",()=>els.calendarNoteDialog.close());
-  els.weekCommentForm.addEventListener("submit",async event=>{
+  safeOn(els.addCalendarNoteButton,"click",()=>{els.calendarNoteDate.value=new Date().toISOString().slice(0,10);els.calendarNoteDialog?.showModal?.()});
+  safeOn(els.cancelCalendarNote,"click",()=>els.calendarNoteDialog?.close?.());
+  safeOn(els.weekCommentForm,"submit",async event=>{
     event.preventDefault();
     const text=normalizeText(els.weekCommentInput.value);
     if(!text)return;
     els.weekCommentInput.value="";
     await addWeekComment(text);
   });
-  els.calendarNoteForm.addEventListener("submit",e=>{
+  safeOn(els.calendarNoteForm,"submit",e=>{
     e.preventDefault();
     notes.push({id:crypto.randomUUID(),date:els.calendarNoteDate.value,type:els.calendarNoteType.value,title:normalizeText(els.calendarNoteTitle.value),notes:normalizeText(els.calendarNoteText.value)});
-    saveJSON(NOTES_STORAGE_KEY,notes);els.calendarNoteForm.reset();els.calendarNoteDialog.close();buildYears();renderCalendar();renderEvents();renderKpis();
+    saveJSON(NOTES_STORAGE_KEY,notes);els.calendarNoteForm.reset();els.calendarNoteDialog?.close?.();buildYears();renderCalendar();renderEvents();renderKpis();
   });
   try{render()}catch(error){
     console.error("Initial planning render failed:",error);
@@ -868,5 +885,6 @@ export function createPlanningModule(els){
     selectedWeek=null;
     render();
   }
+  window.BSTPlanningReady=true;
   return{setAthletes,importFile,resetCurrentPlan};
 }

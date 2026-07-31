@@ -1,8 +1,8 @@
-# Beach Sprint Hub v3.15 — Planning Module Init Fix
+# Beach Sprint Hub v3.16 — Coherent Modules Fix
 
-- Separa la construcción del módulo de la carga inicial de deportistas.
-- Un plan local antiguo o incompatible ya no desactiva todo el módulo.
-- Limpia solamente el plan local defectuoso.
-- Mantiene operativo el importador Excel.
-- Muestra el error real si la construcción del módulo falla.
-- Versión visible: v3.15.
+- Todos los módulos JavaScript llevan la misma versión `?v=316`.
+- Vercel sirve los archivos principales con `Cache-Control: no-store`.
+- El Service Worker elimina las cachés anteriores.
+- Planificación publica el importador desde el inicio de su construcción.
+- Los eventos opcionales no pueden impedir que el módulo arranque.
+- Diagnóstico disponible con `BSTPlanningModuleState()` en consola.
