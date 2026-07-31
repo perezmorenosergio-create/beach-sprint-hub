@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.7 mobile logout cache fix loaded");
+console.info("Beach Sprint Hub v3.8 login timeout fix loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -141,20 +141,60 @@ function setAuthMode(mode){
 }
 async function handleAuth(event){
   event.preventDefault();
-  const email=normalize($("emailInput").value),password=$("passwordInput").value,fullName=normalize($("fullNameInput").value);
+
+  const email=normalize($("emailInput").value);
+  const password=$("passwordInput").value;
+  const fullName=normalize($("fullNameInput").value);
+
   saveLoginPreferences(email);
-  $("authSubmitButton").disabled=true;setAuthMessage(authMode==="signup"?"Creando cuenta…":"Entrando…");
+  $("authSubmitButton").disabled=true;
+  setAuthMessage(authMode==="signup"?"Creando cuenta…":"Entrando…");
+
   try{
-    if(authMode==="signup"){
-      const {data,error}=await client.auth.signUp({email,password,options:{data:{full_name:fullName},emailRedirectTo:location.origin}});
-      if(error)throw error;
-      if(!data.session)setAuthMessage("Cuenta creada. Revisa tu correo para confirmarla.");
-    }else{
-      const {error}=await client.auth.signInWithPassword({email,password});
-      if(error)throw error;
+    const operation=authMode==="signup"
+      ? client.auth.signUp({
+          email,
+          password,
+          options:{data:{full_name:fullName}}
+        })
+      : client.auth.signInWithPassword({email,password});
+
+    const result=await withTimeout(
+      operation,
+      12000,
+      "Supabase no ha respondido en 12 segundos. Comprueba la conexión y vuelve a intentarlo."
+    );
+
+    const {data,error}=result;
+    if(error)throw error;
+
+    if(authMode==="signup"&&!data?.session){
+      setAuthMessage("Cuenta creada. Revisa tu correo para confirmar el acceso.");
+      return;
     }
-  }catch(error){setAuthMessage(error.message||"No se pudo completar la operación.",true)}
-  finally{$("authSubmitButton").disabled=false}
+
+    if(data?.user){
+      await enterApp(data.user);
+    }else{
+      throw new Error("No se ha recibido una sesión válida.");
+    }
+  }catch(error){
+    console.error("Authentication failed:",error);
+
+    let message=error?.message||"No se ha podido iniciar sesión.";
+
+    if(/Failed to fetch|NetworkError|Load failed/i.test(message)){
+      message="No se puede conectar con Supabase desde este dispositivo. Comprueba internet, desactiva bloqueadores o VPN y vuelve a intentarlo.";
+    }else if(/Invalid login credentials/i.test(message)){
+      message="Correo o contraseña incorrectos.";
+    }else if(/Email not confirmed/i.test(message)){
+      message="Debes confirmar el correo antes de iniciar sesión.";
+    }
+
+    setAuthMessage(message,true);
+  }finally{
+    $("authSubmitButton").disabled=false;
+  }
 }
 async function forgotPassword(){
   const email=normalize($("emailInput").value);
@@ -593,6 +633,27 @@ function renderAll(){
   renderHistory();
   planningModule?.setAthletes(athletes,currentUser?.id);
 }
+
+
+window.setInterval(()=>{
+  const button=$("authSubmitButton");
+  const message=$("authMessage");
+  if(
+    button?.disabled &&
+    /Entrando|Creando cuenta/i.test(message?.textContent||"")
+  ){
+    const started=Number(button.dataset.startedAt||0);
+    if(!started){
+      button.dataset.startedAt=String(Date.now());
+    }else if(Date.now()-started>15000){
+      button.disabled=false;
+      button.dataset.startedAt="";
+      setAuthMessage("El acceso ha tardado demasiado. Inténtalo de nuevo.",true);
+    }
+  }else if(button){
+    button.dataset.startedAt="";
+  }
+},1000);
 
 loadLoginPreferences();
 $("togglePasswordButton").addEventListener("click",togglePasswordVisibility);

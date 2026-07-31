@@ -1,10 +1,10 @@
 
-const CACHE="bst-v37-mobile-fix";
+const CACHE="bst-v38-login-timeout";
 const ASSETS=[
   "./",
   "./index.html",
-  "./styles.css?v=37",
-  "./app.js?v=37",
+  "./styles.css?v=38",
+  "./app.js?v=38",
   "./planning.js",
   "./config.js",
   "./import.js",
