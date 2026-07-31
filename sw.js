@@ -1,5 +1,5 @@
 
-const CACHE="bst-v312-planning-selector";
+const CACHE="bst-v313-athlete-import";
 
 self.addEventListener("install",event=>{
   self.skipWaiting();

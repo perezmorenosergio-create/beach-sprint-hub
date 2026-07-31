@@ -896,3 +896,7 @@ input:focus,select:focus{outline:3px solid #93c5fd;border-color:var(--blue)}
 #planningAthleteSelect:disabled{
   opacity:1;
 }
+
+#importMessage{display:block;min-height:22px;font-weight:700;line-height:1.35}
+#athleteFileInput{pointer-events:auto!important}
+.file-button{position:relative;z-index:20;touch-action:manipulation}

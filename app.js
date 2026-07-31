@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.12 planning athlete selector loaded");
+console.info("Beach Sprint Hub v3.13 athlete import fix loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -628,9 +628,16 @@ async function addAthlete(event){
 }
 function setImport(text,error=false){$("importMessage").textContent=text;$("importMessage").style.color=error?"#b91c1c":"#166534"}
 async function handleImport(file){
-  if(!file)return;
-  const input=$("athleteFileInput");input.disabled=true;
-  setImport("Leyendo archivo…");setSync("Procesando…","loading");
+  if(!file){
+    setImport("No se ha seleccionado ningún archivo.",true);
+    return;
+  }
+
+  setImport(`Archivo seleccionado: ${file.name}. Preparando lectura…`);
+  const input=$("athleteFileInput");
+  input.disabled=true;
+  setImport(`Leyendo ${file.name}…`);
+  setSync("Procesando archivo…","loading");
   try{
     const imported=await importAthleteFile(file);
     const names=new Set(athletes.map(x=>x.name.toLowerCase()));
@@ -642,13 +649,29 @@ async function handleImport(file){
       const athlete={id:localAthleteId(),name:row.name,club:row.club||"",category:row.category||"",bib:row.bib||"",sync_status:"pending"};
       athletes.push(athlete);selectedIds.add(athlete.id);added.push(athlete);
     }
-    athletes.sort((a,b)=>a.name.localeCompare(b.name,"es"));saveLocalAthletes();renderAll();
-    setImport(`${added.length} deportistas importados al instante. Sincronizando en segundo plano…`);
-    setSync("Guardado en el dispositivo","ok");
-    added.forEach((athlete,index)=>setTimeout(()=>syncAthleteInBackground(athlete),index*250));
-  }catch(error){setImport(error.message||"No se pudo importar.",true);setSync("Error","error")}
-  finally{input.value="";input.disabled=false}
+    athletes.sort((a,b)=>a.name.localeCompare(b.name,"es"));
+    saveLocalAthletes();
+    renderAll();
+
+    if(!added.length){
+      setImport(`El archivo se leyó correctamente, pero todos los deportistas ya existían.`);
+      setSync("Sin cambios","ok");
+    }else{
+      setImport(`${added.length} deportistas importados. Sincronizando en segundo plano…`);
+      setSync("Guardado en el dispositivo","ok");
+      added.forEach((athlete,index)=>setTimeout(()=>syncAthleteInBackground(athlete),index*250));
+    }
+  }catch(error){
+    console.error("Athlete import failed:",error);
+    setImport(error.message||"No se pudo importar el archivo.",true);
+    setSync("Error al importar","error");
+  }finally{
+    input.value="";
+    input.disabled=false;
+  }
 }
+
+window.BSTImportAthleteFile=handleImport;
 function prepareTimer(){
   const chosen=athletes.filter(a=>selectedIds.has(a.id));if(!chosen.length){alert("Selecciona al menos un deportista.");return}
   session=createSession({name:normalize($("sessionName").value)||"Beach Sprint Session",format:$("sessionFormat").value,lapCount:Math.max(1,Number($("lapCount").value)||1),startMode:$("startMode").value},chosen);
@@ -864,7 +887,16 @@ if(planningAthleteSelect){
 }
 
 $("toggleAllAthletes").addEventListener("click",()=>{const all=athletes.length&&athletes.every(a=>selectedIds.has(a.id));selectedIds=all?new Set():new Set(athletes.map(a=>a.id));renderSessionAthletes()});
-$("athleteForm").addEventListener("submit",addAthlete);$("athleteFileInput").addEventListener("change",e=>handleImport(e.target.files[0]));$("downloadTemplateButton").addEventListener("click",downloadAthleteTemplate);
+$("athleteForm").addEventListener("submit",addAthlete);
+const athleteFileInput=$("athleteFileInput");
+if(athleteFileInput){
+  athleteFileInput.addEventListener("change",event=>{
+    const file=event.target.files?.[0];
+    setImport(file?`Archivo seleccionado: ${file.name}`:"No se seleccionó ningún archivo.",!file);
+    handleImport(file);
+  });
+}
+$("downloadTemplateButton").addEventListener("click",downloadAthleteTemplate);
 $("prepareTimerButton").addEventListener("click",prepareTimer);$("startAllButton").addEventListener("click",()=>{const a=startAll(session);if(a){actions.push(a);startTicker();updateTimer()}});
 $("undoButton").addEventListener("click",()=>{undoAction(session,actions.pop());updateTimer()});$("finishSessionButton").addEventListener("click",finishSession);
 $("exportResultsButton").addEventListener("click",exportResults);$("newSessionButton").addEventListener("click",()=>{session=null;$("globalTimer").textContent="00:00.000";showView("sessionView")});

@@ -1,9 +1,7 @@
-# Beach Sprint Hub v3.12 — Planning Athlete Selector Fix
+# Beach Sprint Hub v3.13 — Athlete Import Fix
 
-- El selector de Planificación se rellena directamente desde la lista activa.
-- Usa los deportistas locales como respaldo.
-- Se actualiza al abrir Planificación.
-- Se actualiza al tocar o enfocar el selector.
-- Se rellena aunque el módulo de planificación tenga un fallo parcial.
-- El selector queda habilitado explícitamente en móvil.
-- La versión visible debe indicar v3.12.
+- La selección del archivo muestra respuesta inmediata.
+- Importación enlazada tanto desde HTML como desde app.js.
+- Mensajes claros: archivo seleccionado, leyendo, importado, duplicados o error.
+- El campo se vuelve a habilitar siempre.
+- La versión visible debe indicar v3.13.
