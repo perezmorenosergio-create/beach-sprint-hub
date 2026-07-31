@@ -1,10 +1,10 @@
 
-const CACHE="bst-v38-login-timeout";
+const CACHE="bst-v39-nonblocking-startup";
 const ASSETS=[
   "./",
   "./index.html",
-  "./styles.css?v=38",
-  "./app.js?v=38",
+  "./styles.css?v=39",
+  "./app.js?v=39",
   "./planning.js",
   "./config.js",
   "./import.js",

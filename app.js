@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.8 login timeout fix loaded");
+console.info("Beach Sprint Hub v3.9 nonblocking startup loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -205,25 +205,42 @@ async function forgotPassword(){
 async function enterApp(user){
   const loadToken=++appLoadToken;
   currentUser=user;
+
   $("passwordInput").value="";
   $("authScreen").classList.add("hidden");
   $("appShell").classList.remove("hidden");
   $("userEmail").textContent=user.email||"";
 
-  // First paint: show locally saved athletes immediately.
+  // Immediate first paint from this device.
   athletes=loadLocalAthletes();
   selectedIds=new Set(athletes.slice(0,4).map(a=>a.id));
   renderAll();
+  setSync("☁️ Sincronizando…","loading");
 
-  setSync("☁️ Cargando…","loading");
+  // Never block the interface while waiting for Supabase.
+  Promise.allSettled([
+    loadAthletes(loadToken),
+    loadSessions()
+  ]).then(results=>{
+    if(loadToken!==appLoadToken)return;
 
-  await Promise.all([loadAthletes(loadToken),loadSessions()]);
+    results.forEach(result=>{
+      if(result.status==="rejected"){
+        console.warn("Background startup task failed:",result.reason);
+      }
+    });
 
-  // Ignore an obsolete authentication/loading cycle.
-  if(loadToken!==appLoadToken)return;
+    renderAll();
 
-  renderAll();
-  setSync("☁️ Sincronizado","ok");
+    const failed=results.some(result=>result.status==="rejected");
+    setSync(
+      failed ? "Datos locales disponibles" : "☁️ Sincronizado",
+      failed ? "warning" : "ok"
+    );
+  });
+
+  // Return immediately so the rest of the interface can finish binding.
+  return;
 }
 
 async function forceLogout(){
@@ -448,9 +465,24 @@ async function loadAthletes(loadToken=appLoadToken){
   }
 }
 async function loadSessions(){
-  const {data,error}=await client.from("sessions").select("*").order("session_date",{ascending:false}).limit(100);
-  if(error){setSync(`Error: ${error.message}`,"error");return}
-  sessions=data||[];
+  try{
+    const response=await withTimeout(
+      client
+        .from("sessions")
+        .select("*")
+        .order("session_date",{ascending:false})
+        .limit(100),
+      8000,
+      "La carga del historial ha tardado demasiado."
+    );
+
+    const {data,error}=response;
+    if(error)throw error;
+    sessions=data||[];
+  }catch(error){
+    console.warn("Sessions could not be loaded; keeping local interface active:",error);
+    sessions=sessions||[];
+  }
 }
 function athleteMeta(a){return [a.club,a.category,a.bib?`Dorsal: ${a.bib}`:""].filter(Boolean).join(" · ")}
 function renderSessionAthletes(){
@@ -635,6 +667,14 @@ function renderAll(){
 }
 
 
+
+window.setTimeout(()=>{
+  const banner=$("syncBanner");
+  if(banner?.dataset.state==="loading"){
+    setSync("Datos locales disponibles","warning");
+  }
+},10000);
+
 window.setInterval(()=>{
   const button=$("authSubmitButton");
   const message=$("authMessage");
@@ -734,7 +774,7 @@ client.auth.onAuthStateChange(async(_event,authSession)=>{
     return;
   }
 
-  if(authSession?.user)await enterApp(authSession.user);
+  if(authSession?.user)enterApp(authSession.user);
   else leaveApp();
 });
 const forcedLogout=new URLSearchParams(location.search).has("logout");
@@ -745,6 +785,6 @@ if(forcedLogout||forcedReset){
   history.replaceState({},document.title,location.pathname);
 }else{
   const {data:{session:initialSession}}=await client.auth.getSession();
-  if(initialSession?.user)await enterApp(initialSession.user);
+  if(initialSession?.user)enterApp(initialSession.user);
   else leaveApp();
 }
