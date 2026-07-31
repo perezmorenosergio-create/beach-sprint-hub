@@ -1,5 +1,5 @@
-const CACHE="bst-v34-athlete-load-fix";
-const ASSETS=["./","./index.html","./styles.css?v=34","./app.js?v=34","./config.js","./import.js","./timer.js","./planning.js","./manifest.json"];
+const CACHE="bst-v35-cloud-sync";
+const ASSETS=["./","./index.html","./styles.css?v=35","./app.js?v=35","./config.js","./import.js","./timer.js","./planning.js","./manifest.json"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;e.respondWith(fetch(e.request).then(r=>{const clone=r.clone();caches.open(CACHE).then(c=>c.put(e.request,clone));return r}).catch(()=>caches.match(e.request)))});

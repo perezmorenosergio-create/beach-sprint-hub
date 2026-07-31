@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#0f172a">
   <title>Beach Sprint Timer</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=34">
+  <link rel="stylesheet" href="styles.css?v=35">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=34"></script>
+  <script type="module" src="app.js?v=35"></script>
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -233,6 +233,21 @@
                 <button id="goToSelectedWeekButton" class="outline-button" type="button">Abrir semana completa</button>
               </div>
               <div id="currentWeekDays" class="current-week-days"></div>
+            </div>
+
+            <div class="panel week-comments-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">COMUNICACIÓN</p>
+                  <h2>Comentarios de la semana</h2>
+                </div>
+                <span id="weekCommentsSyncState" class="comments-sync-state">Guardado</span>
+              </div>
+              <div id="weekCommentsList" class="week-comments-list"></div>
+              <form id="weekCommentForm" class="week-comment-form">
+                <textarea id="weekCommentInput" rows="3" placeholder="Escribe una indicación, feedback o respuesta para esta semana…" required></textarea>
+                <button class="primary-button" type="submit">Enviar comentario</button>
+              </form>
             </div>
 
             <div class="current-week-bottom-grid">

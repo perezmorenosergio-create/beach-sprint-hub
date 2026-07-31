@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.4 athlete load fix loaded");
+console.info("Beach Sprint Hub v3.5 cloud sync comments loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -243,9 +243,41 @@ function renderAthletes(){
     const text=document.createElement("div"),name=document.createElement("div"),meta=document.createElement("div"),del=document.createElement("button");
     name.className="management-name";name.textContent=a.name;meta.className="management-meta";meta.textContent=athleteMeta(a);text.append(name,meta);
     del.className="icon-button delete-button";del.type="button";del.textContent="×";
-    del.addEventListener("click",async()=>{if(!confirm(`¿Eliminar a ${a.name}?`))return;setSync("☁️ Eliminando…","loading");
-      const {error}=await client.from("athletes").delete().eq("id",a.id);if(error){alert(error.message);setSync("Error","error");return}
-      athletes=athletes.filter(x=>x.id!==a.id);selectedIds.delete(a.id);renderAll();setSync("☁️ Sincronizado","ok")});
+    del.addEventListener("click",async()=>{
+      if(!confirm(`¿Eliminar a ${a.name}?`))return;
+
+      setSync("☁️ Eliminando…","loading");
+
+      // Remove immediately from the current device.
+      athletes=athletes.filter(x=>x.id!==a.id);
+      selectedIds.delete(a.id);
+      saveLocalAthletes();
+      renderAll();
+
+      // Local-only athletes do not exist in Supabase yet.
+      if(String(a.id).startsWith("local-")){
+        setSync("Eliminado del dispositivo","ok");
+        return;
+      }
+
+      try{
+        const {error}=await client.from("athletes").delete().eq("id",a.id);
+        if(error)throw error;
+
+        // Remove cloud planning data linked to this athlete.
+        await Promise.allSettled([
+          client.from("athlete_plans").delete().eq("athlete_id",a.id),
+          client.from("week_comments").delete().eq("athlete_id",a.id),
+          client.from("training_completion").delete().eq("athlete_id",a.id)
+        ]);
+
+        setSync("☁️ Deportista eliminado","ok");
+      }catch(error){
+        console.error(error);
+        setSync("No se pudo eliminar en la nube","error");
+        alert(`Se eliminó del dispositivo, pero Supabase devolvió: ${error.message}`);
+      }
+    });
     row.append(text,del);box.append(row);
   });
 }
@@ -381,6 +413,8 @@ $("rememberAccessInput").addEventListener("change",()=>{
 
 
 planningModule=createPlanningModule({
+  supabase:client,
+  getCurrentUser:()=>currentUser,
   input:$("annualPlanFileInput"),
   message:$("planningImportMessage"),
   emptyState:$("planningEmptyState"),
@@ -398,6 +432,10 @@ planningModule=createPlanningModule({
   currentWeekZones:$("currentWeekZones"),
   currentWeekStats:$("currentWeekStats"),
   goToSelectedWeekButton:$("goToSelectedWeekButton"),
+  weekCommentsList:$("weekCommentsList"),
+  weekCommentForm:$("weekCommentForm"),
+  weekCommentInput:$("weekCommentInput"),
+  weekCommentsSyncState:$("weekCommentsSyncState"),
   weeksKpi:$("planningWeeksKpi"),
   hoursKpi:$("planningHoursKpi"),
   sessionsKpi:$("planningSessionsKpi"),

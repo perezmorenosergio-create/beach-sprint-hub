@@ -791,3 +791,60 @@ input:focus,select:focus{outline:3px solid #93c5fd;border-color:var(--blue)}
     flex-direction:column;
   }
 }
+
+.week-comments-panel{
+  margin-top:14px;
+}
+.comments-sync-state{
+  font-size:11px;
+  color:#64748b;
+  border-radius:999px;
+  background:#f1f5f9;
+  padding:6px 9px;
+}
+.week-comments-list{
+  display:grid;
+  gap:9px;
+  max-height:360px;
+  overflow:auto;
+  padding-right:3px;
+}
+.week-comment{
+  border:1px solid #dbe3ee;
+  border-radius:14px;
+  background:#f8fafc;
+  padding:11px 13px;
+}
+.week-comment-head{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+}
+.week-comment-head small{
+  color:#64748b;
+}
+.week-comment p{
+  margin:7px 0 0;
+  white-space:pre-wrap;
+  line-height:1.45;
+}
+.week-comment-form{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:9px;
+  align-items:end;
+  margin-top:12px;
+}
+.week-comment-form textarea{
+  width:100%;
+  resize:vertical;
+  border:1px solid #cbd5e1;
+  border-radius:13px;
+  padding:11px 12px;
+  font:inherit;
+}
+@media(max-width:650px){
+  .week-comment-form{
+    grid-template-columns:1fr;
+  }
+}

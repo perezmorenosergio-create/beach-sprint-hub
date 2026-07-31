@@ -92,14 +92,17 @@ function mondayOfWeek(year,week){
 function iso(d){return d.toISOString().slice(0,10)}
 
 export function createPlanningModule(els){
+  const supabase=els.supabase;
   let plansByAthlete=loadJSON(PLANS_STORAGE_KEY,{});
   let notes=loadJSON(NOTES_STORAGE_KEY,[]);
   let completion=loadJSON(COMPLETION_STORAGE_KEY,{});
+  let weekComments=[];
   let athleteId="general";
   let userId="anonymous";
   let plan=plansByAthlete[athleteId]||null;
   let selectedWeek=null;
   let libraryFilter="";
+  let cloudLoadToken=0;
 
   function planKey(){
     return `${userId}:${athleteId}`;
@@ -112,6 +115,51 @@ export function createPlanningModule(els){
   function saveCurrentPlan(){
     plansByAthlete[athleteId]=plan;
     saveJSON(PLANS_STORAGE_KEY,plansByAthlete);
+    syncCurrentPlanToCloud();
+  }
+
+  async function syncCurrentPlanToCloud(){
+    if(!supabase||!userId||userId==="anonymous"||!plan)return;
+    try{
+      const row={
+        user_id:userId,
+        athlete_id:athleteId,
+        plan_data:plan,
+        updated_at:new Date().toISOString()
+      };
+      const {error}=await supabase
+        .from("athlete_plans")
+        .upsert(row,{onConflict:"user_id,athlete_id"});
+      if(error)throw error;
+    }catch(error){
+      console.warn("Plan kept locally; cloud plan sync failed:",error);
+    }
+  }
+
+  async function loadPlanFromCloud(){
+    if(!supabase||!userId||userId==="anonymous")return;
+    const token=++cloudLoadToken;
+    try{
+      const {data,error}=await supabase
+        .from("athlete_plans")
+        .select("plan_data,updated_at")
+        .eq("user_id",userId)
+        .eq("athlete_id",athleteId)
+        .maybeSingle();
+
+      if(error)throw error;
+      if(token!==cloudLoadToken)return;
+
+      if(data?.plan_data){
+        plan=data.plan_data;
+        plansByAthlete[athleteId]=plan;
+        saveJSON(PLANS_STORAGE_KEY,plansByAthlete);
+        selectedWeek=findCurrentWeek()?.week||plan.summary?.[0]?.week||null;
+        render();
+      }
+    }catch(error){
+      console.warn("Cloud plan load failed; using local copy:",error);
+    }
   }
 
   const setMessage=(text,error=false)=>{
@@ -375,6 +423,126 @@ export function createPlanningModule(els){
     requestAnimationFrame(()=>scrollTimelineWeekIntoView(chosen));
   }
 
+
+  async function syncCompletionToCloud(key,completed){
+    if(!supabase||!userId||userId==="anonymous")return;
+    try{
+      const {error}=await supabase.from("training_completion").upsert({
+        user_id:userId,
+        athlete_id:athleteId,
+        completion_key:key,
+        completed:Boolean(completed),
+        updated_at:new Date().toISOString()
+      },{onConflict:"user_id,athlete_id,completion_key"});
+      if(error)throw error;
+    }catch(error){
+      console.warn("Completion kept locally:",error);
+    }
+  }
+
+  async function loadCompletionFromCloud(){
+    if(!supabase||!userId||userId==="anonymous")return;
+    try{
+      const {data,error}=await supabase
+        .from("training_completion")
+        .select("completion_key,completed")
+        .eq("user_id",userId)
+        .eq("athlete_id",athleteId);
+      if(error)throw error;
+      (data||[]).forEach(row=>completion[row.completion_key]=row.completed);
+      saveJSON(COMPLETION_STORAGE_KEY,completion);
+      renderCurrentWeek();
+    }catch(error){
+      console.warn("Cloud completion load failed:",error);
+    }
+  }
+
+  function commentWeek(){
+    return selectedWeek||findCurrentWeek()?.week||null;
+  }
+
+  function renderWeekComments(){
+    const week=commentWeek();
+    const rows=weekComments
+      .filter(item=>Number(item.week_number)===Number(week))
+      .sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
+
+    els.weekCommentsList.innerHTML=rows.length
+      ? rows.map(item=>`
+        <article class="week-comment">
+          <div class="week-comment-head">
+            <strong>${item.author_name||"Entrenador"}</strong>
+            <small>${new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(item.created_at))}</small>
+          </div>
+          <p>${String(item.comment_text||"").replace(/[<>&]/g,ch=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[ch]))}</p>
+        </article>`).join("")
+      : '<div class="empty-state">Todavía no hay comentarios en esta semana.</div>';
+  }
+
+  async function loadWeekComments(){
+    if(!supabase||!userId||userId==="anonymous"){
+      renderWeekComments();
+      return;
+    }
+    els.weekCommentsSyncState.textContent="Sincronizando…";
+    try{
+      const {data,error}=await supabase
+        .from("week_comments")
+        .select("*")
+        .eq("user_id",userId)
+        .eq("athlete_id",athleteId)
+        .order("created_at",{ascending:true});
+      if(error)throw error;
+      weekComments=data||[];
+      els.weekCommentsSyncState.textContent="Sincronizado";
+      renderWeekComments();
+    }catch(error){
+      console.warn("Comments load failed:",error);
+      els.weekCommentsSyncState.textContent="Solo local";
+      renderWeekComments();
+    }
+  }
+
+  async function addWeekComment(text){
+    const week=commentWeek();
+    if(!week||!text)return;
+    const user=els.getCurrentUser?.();
+    const localComment={
+      id:`local-${Date.now()}`,
+      user_id:userId,
+      athlete_id:athleteId,
+      week_number:week,
+      comment_text:text,
+      author_name:user?.user_metadata?.full_name||user?.email||"Entrenador",
+      created_at:new Date().toISOString()
+    };
+    weekComments.push(localComment);
+    renderWeekComments();
+
+    if(!supabase||userId==="anonymous")return;
+    els.weekCommentsSyncState.textContent="Guardando…";
+    try{
+      const {data,error}=await supabase
+        .from("week_comments")
+        .insert({
+          user_id:userId,
+          athlete_id:athleteId,
+          week_number:week,
+          comment_text:text,
+          author_name:localComment.author_name
+        })
+        .select()
+        .single();
+      if(error)throw error;
+      weekComments=weekComments.map(item=>item.id===localComment.id?data:item);
+      els.weekCommentsSyncState.textContent="Guardado";
+      renderWeekComments();
+    }catch(error){
+      console.warn("Comment kept locally:",error);
+      els.weekCommentsSyncState.textContent="Pendiente de sincronizar";
+    }
+  }
+
   function renderCurrentWeek(){
     const summary=findCurrentWeek();
     if(!summary)return;
@@ -444,6 +612,7 @@ export function createPlanningModule(els){
       input.addEventListener("change",()=>{
         completion[input.dataset.completionKey]=input.checked;
         saveJSON(COMPLETION_STORAGE_KEY,completion);
+        syncCompletionToCloud(input.dataset.completionKey,input.checked);
         renderCurrentWeek();
       });
     });
@@ -485,6 +654,8 @@ export function createPlanningModule(els){
       <article><span>Carga</span><strong>${Math.round(summary.load*100)}%</strong></article>
     `;
 
+    renderWeekComments();
+
     els.goToSelectedWeekButton.onclick=()=>{
       selectedWeek=summary.week;
       els.weekSelector.value=String(summary.week);
@@ -512,8 +683,11 @@ export function createPlanningModule(els){
 
     els.athleteSelect.value=athleteId;
     plan=plansByAthlete[athleteId]||null;
-    selectedWeek=plan?.summary?.[0]?.week||null;
+    selectedWeek=findCurrentWeek()?.week||plan?.summary?.[0]?.week||null;
     render();
+    loadPlanFromCloud();
+    loadCompletionFromCloud();
+    loadWeekComments();
   }
 
   const render=()=>{
@@ -532,14 +706,18 @@ export function createPlanningModule(els){
   els.athleteSelect.addEventListener("change",()=>{
     athleteId=els.athleteSelect.value;
     plan=plansByAthlete[athleteId]||null;
-    selectedWeek=plan?.summary?.[0]?.week||null;
+    selectedWeek=findCurrentWeek()?.week||plan?.summary?.[0]?.week||null;
     render();
+    loadPlanFromCloud();
+    loadCompletionFromCloud();
+    loadWeekComments();
   });
   els.input.addEventListener("change",e=>importFile(e.target.files[0]));
   els.weekSelector.addEventListener("change",()=>{
     selectedWeek=Number(els.weekSelector.value);
     renderWeeklySheet();
     renderSeasonTimeline();
+    renderWeekComments();
     scrollTimelineWeekIntoView(selectedWeek,true);
   });
   els.phaseFilter.addEventListener("change",renderAnnualSummary);
@@ -556,6 +734,13 @@ export function createPlanningModule(els){
   }));
   els.addCalendarNoteButton.addEventListener("click",()=>{els.calendarNoteDate.value=new Date().toISOString().slice(0,10);els.calendarNoteDialog.showModal()});
   els.cancelCalendarNote.addEventListener("click",()=>els.calendarNoteDialog.close());
+  els.weekCommentForm.addEventListener("submit",async event=>{
+    event.preventDefault();
+    const text=normalizeText(els.weekCommentInput.value);
+    if(!text)return;
+    els.weekCommentInput.value="";
+    await addWeekComment(text);
+  });
   els.calendarNoteForm.addEventListener("submit",e=>{
     e.preventDefault();
     notes.push({id:crypto.randomUUID(),date:els.calendarNoteDate.value,type:els.calendarNoteType.value,title:normalizeText(els.calendarNoteTitle.value),notes:normalizeText(els.calendarNoteText.value)});
