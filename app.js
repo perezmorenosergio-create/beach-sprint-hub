@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.3 season timeline loaded");
+console.info("Beach Sprint Hub v3.4 athlete load fix loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -33,6 +33,7 @@ function withTimeout(promise,milliseconds,message){
 let authMode="login",currentUser=null,athletes=[],selectedIds=new Set(),sessions=[];
 let session=null,actions=[],ticker=null,lastTap=new Map(),saving=false;
 let planningModule=null;
+let appLoadToken=0;
 
 const LOCAL_ATHLETES_KEY="bst_local_athletes_v1";
 
@@ -140,32 +141,80 @@ async function forgotPassword(){
   setAuthMessage(error?error.message:"Te hemos enviado un correo para restablecer la contraseña.",!!error);
 }
 async function enterApp(user){
+  const loadToken=++appLoadToken;
   currentUser=user;
   $("passwordInput").value="";
   $("authScreen").classList.add("hidden");
   $("appShell").classList.remove("hidden");
   $("userEmail").textContent=user.email||"";
-  setSync("☁️ Cargando…","loading");await Promise.all([loadAthletes(),loadSessions()]);setSync("☁️ Sincronizado","ok");renderAll();
+
+  // First paint: show locally saved athletes immediately.
+  athletes=loadLocalAthletes();
+  selectedIds=new Set(athletes.slice(0,4).map(a=>a.id));
+  renderAll();
+
+  setSync("☁️ Cargando…","loading");
+
+  await Promise.all([loadAthletes(loadToken),loadSessions()]);
+
+  // Ignore an obsolete authentication/loading cycle.
+  if(loadToken!==appLoadToken)return;
+
+  renderAll();
+  setSync("☁️ Sincronizado","ok");
 }
 function leaveApp(){
+  appLoadToken++;
   currentUser=null;athletes=[];sessions=[];selectedIds.clear();session=null;
   $("appShell").classList.add("hidden");$("authScreen").classList.remove("hidden");
 }
-async function loadAthletes(){
+async function loadAthletes(loadToken=appLoadToken){
   const local=loadLocalAthletes();
   athletes=local;
+  selectedIds=new Set(athletes.slice(0,4).map(a=>a.id));
+
+  // Make local data visible before waiting for the network.
+  renderSessionAthletes();
+  renderAthletes();
+  planningModule?.setAthletes(athletes,currentUser?.id);
+
   try{
-    const {data,error}=await client.from("athletes").select("*").order("name");
-    if(!error&&data){
-      const cloudNames=new Set(data.map(x=>x.name.toLowerCase()));
-      const unsynced=local.filter(x=>String(x.id).startsWith("local-")&&!cloudNames.has(x.name.toLowerCase()));
-      athletes=[...data,...unsynced].sort((a,b)=>a.name.localeCompare(b.name,"es"));
+    const response=await withTimeout(
+      client.from("athletes").select("*").order("name"),
+      8000,
+      "La sincronización de deportistas ha tardado demasiado."
+    );
+
+    if(loadToken!==appLoadToken)return;
+
+    const {data,error}=response;
+    if(error)throw error;
+
+    if(data){
+      const cloudNames=new Set(data.map(x=>String(x.name||"").toLowerCase()));
+      const unsynced=local.filter(x=>
+        String(x.id).startsWith("local-") &&
+        !cloudNames.has(String(x.name||"").toLowerCase())
+      );
+
+      athletes=[...data,...unsynced].sort((a,b)=>
+        String(a.name||"").localeCompare(String(b.name||""),"es")
+      );
+
       saveLocalAthletes();
+      selectedIds=new Set(athletes.slice(0,4).map(a=>a.id));
+
+      // Second paint with the complete cloud + local list.
+      renderSessionAthletes();
+      renderAthletes();
+      planningModule?.setAthletes(athletes,currentUser?.id);
     }
   }catch(error){
     console.warn("Using local athletes:",error);
+    if(loadToken===appLoadToken){
+      setSync("Deportistas cargados del dispositivo","ok");
+    }
   }
-  selectedIds=new Set(athletes.slice(0,4).map(a=>a.id));
 }
 async function loadSessions(){
   const {data,error}=await client.from("sessions").select("*").order("session_date",{ascending:false}).limit(100);
