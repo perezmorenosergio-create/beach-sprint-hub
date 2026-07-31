@@ -1,8 +1,8 @@
-console.info("Beach Sprint Hub v3.16 coherent modules loaded");
-import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js?v=316";
-import {importAthleteFile,downloadAthleteTemplate} from "./import.js?v=316";
-import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js?v=316";
-import {createPlanningModule} from "./planning.js?v=316";
+console.info("Beach Sprint Hub v3.17 planning init root fix loaded");
+import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js?v=317";
+import {importAthleteFile,downloadAthleteTemplate} from "./import.js?v=317";
+import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js?v=317";
+import {createPlanningModule} from "./planning.js?v=317";
 
 const client=window.supabase.createClient(
   SUPABASE_URL,
@@ -33,7 +33,6 @@ function withTimeout(promise,milliseconds,message){
 let authMode="login",currentUser=null,athletes=[],selectedIds=new Set(),sessions=[];
 let session=null,actions=[],ticker=null,lastTap=new Map(),saving=false;
 let planningModule=null;
-window.BSTPlanningModuleState=()=>({ready:!!planningModule,module:planningModule});
 let appLoadToken=0;
 
 const LOCAL_ATHLETES_KEY="bst_local_athletes_v1";
@@ -796,7 +795,7 @@ $("signupTab").addEventListener("click",()=>setAuthMode("signup"));
 $("authForm").addEventListener("submit",handleAuth);
 $("forgotPasswordButton").addEventListener("click",forgotPassword);
 $("logoutButton").addEventListener("click",forceLogout);
-$("resetAppButton").addEventListener("click",resetMobileApp);
+$("resetAppButton")?.addEventListener("click",resetMobileApp);
 
 document.querySelectorAll(".tab").forEach(tab=>{
   tab.addEventListener("click",event=>{
@@ -864,8 +863,6 @@ planningModule=createPlanningModule({
   librarySearch:$("trainingLibrarySearch"),
   libraryTable:$("trainingLibraryTable")
 });
-window.BSTPlanningModule=planningModule;
-console.info("Planning module ready", planningModule);
 } catch (error) {
   console.error("Planning module construction failed:",error);
   planningModule=null;
