@@ -708,28 +708,68 @@ export function createPlanningModule(els){
 
   function setAthletes(athletes,currentUserId){
     userId=currentUserId||"anonymous";
+    const list=Array.isArray(athletes)?athletes:[];
+    const previousValue=els.athleteSelect?.value||athleteId||"general";
 
-    const previousValue=els.athleteSelect.value||athleteId;
-    els.athleteSelect.innerHTML='<option value="general">Plan general</option>';
+    if(els.athleteSelect){
+      els.athleteSelect.replaceChildren();
+      const general=document.createElement("option");
+      general.value="general";
+      general.textContent="Plan general";
+      els.athleteSelect.appendChild(general);
 
-    athletes.forEach(athlete=>{
-      const option=document.createElement("option");
-      option.value=athlete.id;
-      option.textContent=athlete.name;
-      els.athleteSelect.appendChild(option);
-    });
+      list.forEach(athlete=>{
+        if(!athlete?.id||!athlete?.name)return;
+        const option=document.createElement("option");
+        option.value=String(athlete.id);
+        option.textContent=String(athlete.name);
+        els.athleteSelect.appendChild(option);
+      });
 
-    athleteId=[...els.athleteSelect.options].some(option=>option.value===previousValue)
-      ? previousValue
-      : "general";
+      const values=Array.from(els.athleteSelect.options||[],option=>option.value);
+      athleteId=values.includes(previousValue)?previousValue:"general";
+      els.athleteSelect.value=athleteId;
+    }
 
-    els.athleteSelect.value=athleteId;
-    plan=plansByAthlete[athleteId]||null;
-    selectedWeek=findCurrentWeek()?.week||plan?.summary?.[0]?.week||null;
-    render();
+    const candidate=plansByAthlete[athleteId]||null;
+    const valid=!candidate||(
+      Array.isArray(candidate.summary)&&
+      Array.isArray(candidate.sessions)&&
+      Array.isArray(candidate.trainingLibrary)
+    );
+
+    if(valid){
+      plan=candidate;
+    }else{
+      console.warn("Discarding incompatible local plan",athleteId);
+      delete plansByAthlete[athleteId];
+      saveJSON(PLANS_STORAGE_KEY,plansByAthlete);
+      plan=null;
+    }
+
+    selectedWeek=plan?.summary?.length
+      ? (findCurrentWeek()?.week||plan.summary[0]?.week||null)
+      : null;
+
+    try{render()}catch(error){
+      console.error("Planning render after athlete refresh failed:",error);
+      plan=null;
+      delete plansByAthlete[athleteId];
+      saveJSON(PLANS_STORAGE_KEY,plansByAthlete);
+      render();
+    }
+
     loadPlanFromCloud();
     loadCompletionFromCloud();
     loadWeekComments();
+  }
+
+  function resetCurrentPlan(){
+    plan=null;
+    selectedWeek=null;
+    delete plansByAthlete[athleteId];
+    saveJSON(PLANS_STORAGE_KEY,plansByAthlete);
+    render();
   }
 
   const render=()=>{
@@ -822,6 +862,11 @@ export function createPlanningModule(els){
     notes.push({id:crypto.randomUUID(),date:els.calendarNoteDate.value,type:els.calendarNoteType.value,title:normalizeText(els.calendarNoteTitle.value),notes:normalizeText(els.calendarNoteText.value)});
     saveJSON(NOTES_STORAGE_KEY,notes);els.calendarNoteForm.reset();els.calendarNoteDialog.close();buildYears();renderCalendar();renderEvents();renderKpis();
   });
-  render();
-  return{setAthletes};
+  try{render()}catch(error){
+    console.error("Initial planning render failed:",error);
+    plan=null;
+    selectedWeek=null;
+    render();
+  }
+  return{setAthletes,importFile,resetCurrentPlan};
 }

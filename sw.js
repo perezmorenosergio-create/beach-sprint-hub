@@ -1,5 +1,5 @@
 
-const CACHE="bst-v314-planning-import";
+const CACHE="bst-v315-planning-init";
 
 self.addEventListener("install",event=>{
   self.skipWaiting();

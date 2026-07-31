@@ -863,15 +863,28 @@ planningModule=createPlanningModule({
   librarySearch:$("trainingLibrarySearch"),
   libraryTable:$("trainingLibraryTable")
 });
-  refreshPlanningAthleteSelector();
-  planningModule?.setAthletes(athletes,currentUser?.id);
 } catch (error) {
-  console.error("Planning module initialization failed:",error);
+  console.error("Planning module construction failed:",error);
   planningModule=null;
   const message=$("planningImportMessage");
   if(message){
-    message.textContent="La planificación no pudo iniciarse, pero el resto de la aplicación sigue disponible.";
+    message.textContent=`No se pudo construir el módulo de planificación: ${error?.message||error}`;
     message.className="planning-message error";
+  }
+}
+
+refreshPlanningAthleteSelector();
+if(planningModule){
+  try{
+    planningModule.setAthletes(athletes,currentUser?.id);
+  }catch(error){
+    console.error("Planning athlete initialization failed:",error);
+    const message=$("planningImportMessage");
+    if(message){
+      message.textContent="Planificación iniciada. Se ha ignorado un plan local incompatible; ya puedes importar el Excel.";
+      message.className="planning-message warning";
+    }
+    try{ planningModule.resetCurrentPlan?.(); }catch(_error){}
   }
 }
 
