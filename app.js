@@ -1,4 +1,4 @@
-console.info("Beach Sprint Hub v3.5 cloud sync comments loaded");
+console.info("Beach Sprint Hub v3.6 athlete cloud migration loaded");
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from "./config.js";
 import {importAthleteFile,downloadAthleteTemplate} from "./import.js";
 import {formatTime,createSession,athleteTotal,recordTap,startAll,undoAction} from "./timer.js";
@@ -48,6 +48,28 @@ function localAthleteId(){
 }
 async function syncAthleteInBackground(athlete){
   try{
+    const normalizedName=String(athlete.name||"").trim().toLowerCase();
+    const {data:existingRows,error:existingError}=await client
+      .from("athletes")
+      .select("*")
+      .eq("user_id",currentUser.id);
+
+    if(existingError)throw existingError;
+
+    const existing=(existingRows||[]).find(row=>
+      String(row.name||"").trim().toLowerCase()===normalizedName
+    );
+
+    if(existing){
+      const index=athletes.findIndex(x=>x.id===athlete.id);
+      if(index>=0){
+        athletes[index]=existing;
+        saveLocalAthletes();
+        renderAll();
+      }
+      return;
+    }
+
     const payload={
       user_id:currentUser.id,
       name:athlete.name,
@@ -168,9 +190,95 @@ function leaveApp(){
   currentUser=null;athletes=[];sessions=[];selectedIds.clear();session=null;
   $("appShell").classList.add("hidden");$("authScreen").classList.remove("hidden");
 }
+
+async function migrateLocalAthletesToCloud(localAthletes){
+  if(!currentUser?.id||!localAthletes.length)return localAthletes;
+
+  try{
+    const {data:cloudRows,error:cloudError}=await client
+      .from("athletes")
+      .select("*")
+      .eq("user_id",currentUser.id);
+
+    if(cloudError)throw cloudError;
+
+    const cloud=cloudRows||[];
+    const byName=new Map(
+      cloud.map(row=>[String(row.name||"").trim().toLowerCase(),row])
+    );
+    const migrated=[];
+
+    for(const athlete of localAthletes){
+      const key=String(athlete.name||"").trim().toLowerCase();
+      if(!key)continue;
+
+      const existing=byName.get(key);
+      if(existing){
+        migrated.push(existing);
+        continue;
+      }
+
+      const payload={
+        user_id:currentUser.id,
+        name:athlete.name,
+        club:athlete.club||null,
+        category:athlete.category||null,
+        bib:athlete.bib||null
+      };
+
+      const {data,error}=await client
+        .from("athletes")
+        .insert(payload)
+        .select()
+        .single();
+
+      if(error){
+        console.warn(`Could not migrate athlete ${athlete.name}:`,error);
+        migrated.push(athlete);
+        continue;
+      }
+
+      byName.set(key,data);
+      migrated.push(data);
+
+      // Move locally stored plans from the temporary id to the cloud id.
+      if(String(athlete.id).startsWith("local-")){
+        try{
+          const plans=JSON.parse(localStorage.getItem("bst_trainer_athlete_plans_v1")||"{}");
+          if(plans[athlete.id]&&!plans[data.id]){
+            plans[data.id]=plans[athlete.id];
+            delete plans[athlete.id];
+            localStorage.setItem("bst_trainer_athlete_plans_v1",JSON.stringify(plans));
+          }
+        }catch(error){
+          console.warn("Could not migrate local plan key:",error);
+        }
+      }
+    }
+
+    // Include cloud athletes that were not present locally.
+    for(const row of cloud){
+      const exists=migrated.some(item=>item.id===row.id);
+      if(!exists)migrated.push(row);
+    }
+
+    return migrated.sort((a,b)=>
+      String(a.name||"").localeCompare(String(b.name||""),"es")
+    );
+  }catch(error){
+    console.warn("Automatic athlete cloud migration failed:",error);
+    return localAthletes;
+  }
+}
+
 async function loadAthletes(loadToken=appLoadToken){
-  const local=loadLocalAthletes();
+  const originalLocal=loadLocalAthletes();
+  const local=await migrateLocalAthletesToCloud(originalLocal);
+
+  if(loadToken!==appLoadToken)return;
+
   athletes=local;
+  saveLocalAthletes();
   selectedIds=new Set(athletes.slice(0,4).map(a=>a.id));
 
   // Make local data visible before waiting for the network.
@@ -180,7 +288,7 @@ async function loadAthletes(loadToken=appLoadToken){
 
   try{
     const response=await withTimeout(
-      client.from("athletes").select("*").order("name"),
+      client.from("athletes").select("*").eq("user_id",currentUser.id).order("name"),
       8000,
       "La sincronización de deportistas ha tardado demasiado."
     );
